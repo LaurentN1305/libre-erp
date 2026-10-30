@@ -1,6 +1,6 @@
 # Libre ERP
 
-Application Windows de gestion des bâtiments, du registre de sécurité et de la maintenance des établissements recevant du public. Développée avec Tauri 2, Rust, React et TypeScript.
+Libre ERP est une application Windows hors ligne dédiée au suivi des bâtiments ERP (établissements recevant du public). Elle centralise la maintenance, les contrats d’entretien, les interventions, les équipements et le registre de sécurité, ainsi que les documents, les échéances et l’historique de chaque bâtiment.
 
 **État : version d’essai 0.10.0, schéma SQLite 13.** Le logiciel fonctionne hors ligne pour ses données métier. La recherche cartographique et la vérification de mises à jour sont des actions réseau facultatives.
 
