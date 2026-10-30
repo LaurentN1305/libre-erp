@@ -1,0 +1,73 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Libre ERP",
+  "version": "0.10.0",
+  "identifier": "fr.securiteerp.desktop",
+  "build": {
+    "beforeDevCommand": "node scripts/frontend.mjs dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "node scripts/frontend.mjs build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Libre ERP",
+        "width": 1440,
+        "height": 960,
+        "minWidth": 1024,
+        "minHeight": 720,
+        "visible": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'none'",
+      "capabilities": [
+        "main"
+      ]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "targets": [
+      "nsis",
+      "msi"
+    ],
+    "createUpdaterArtifacts": false,
+    "windows": {
+      "digestAlgorithm": "sha256",
+      "webviewInstallMode": {
+        "type": "offlineInstaller"
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": [
+          "French"
+        ],
+        "displayLanguageSelector": false
+      },
+      "wix": {
+        "language": "fr-FR"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY",
+      "endpoints": [
+        "https://updates.example.invalid/stable/{{target}}/{{arch}}/{{current_version}}"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}

@@ -1,0 +1,43 @@
+name: Vérifications Windows
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: verifications-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verifications:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    env:
+      CARGO_INCREMENTAL: '0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Préparer pnpm
+        shell: pwsh
+        run: npm install --global pnpm@11.25.0
+      - name: Préparer Rust et Perl
+        shell: pwsh
+        run: |
+          rustup set profile minimal
+          rustup update stable --no-self-update
+          rustup default stable
+          if (Test-Path 'C:/Strawberry/perl/bin/perl.exe') { 'C:/Strawberry/perl/bin' | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8 }
+          elseif (-not (Get-Command perl -ErrorAction SilentlyContinue)) { throw 'Perl est nécessaire pour OpenSSL/SQLCipher.' }
+      - name: Installer les dépendances frontend
+        run: pnpm install --frozen-lockfile
+      - name: Vérifier et compiler le frontend
+        run: pnpm run build
+      - name: Tests Node
+        run: pnpm test
+      - name: Tests Rust et SQLCipher
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml --lib -j 2

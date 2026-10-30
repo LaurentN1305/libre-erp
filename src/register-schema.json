@@ -1,0 +1,381 @@
+[
+  {
+    "code": "A",
+    "title": "Identification",
+    "fields": [
+      {
+        "key": "exploitant",
+        "label": "Exploitant",
+        "kind": "text",
+        "required": true
+      },
+      {
+        "key": "contact",
+        "label": "Coordonnées et contacts de sécurité",
+        "kind": "textarea",
+        "required": true
+      },
+      {
+        "key": "activites",
+        "label": "Activités du bâtiment",
+        "kind": "textarea",
+        "required": true
+      },
+      {
+        "key": "autorisations",
+        "label": "Références des dossiers et autorisations",
+        "kind": "textarea",
+        "required": false,
+        "help": "Facultatif. Exemples : numéro de l’arrêté d’ouverture, référence d’une autorisation de travaux ou numéro du dossier ERP en mairie. Joignez les documents correspondants dans la rubrique B."
+      }
+    ]
+  },
+  {
+    "code": "B",
+    "title": "Plans, notice et autorisations",
+    "fields": [
+      {
+        "key": "nature",
+        "label": "Nature du dossier ou du plan",
+        "kind": "text",
+        "required": true
+      },
+      {
+        "key": "reference",
+        "label": "Référence et version",
+        "kind": "text",
+        "required": true
+      },
+      {
+        "key": "description",
+        "label": "Description, emplacement et autorisations",
+        "kind": "textarea",
+        "required": true
+      }
+    ]
+  },
+  {
+    "code": "C",
+    "title": "Commission et vérifications périodiques",
+    "fields": [
+      {
+        "key": "type_controle",
+        "label": "Nature du passage",
+        "kind": "controltype",
+        "required": true
+      },
+      {
+        "key": "date",
+        "label": "Date de visite ou vérification",
+        "kind": "date",
+        "required": true
+      },
+      {
+        "key": "organisme",
+        "label": "Commission ou organisme",
+        "kind": "text",
+        "required": true
+      },
+      {
+        "key": "avis",
+        "label": "Avis et conclusions",
+        "kind": "textarea",
+        "required": true
+      },
+      {
+        "key": "observations",
+        "label": "Observations et mesures correctives",
+        "kind": "textarea",
+        "required": true
+      },
+      {
+        "key": "echeance",
+        "label": "Prochaine échéance",
+        "kind": "date",
+        "required": false
+      },
+      {
+        "key": "suivi",
+        "label": "Suivi d’une observation",
+        "kind": "followup",
+        "required": true
+      },
+      {
+        "key": "gravite",
+        "label": "Gravité de l’observation (1 faible à 4 critique)",
+        "kind": "number",
+        "required": false
+      }
+    ]
+  },
+  {
+    "code": "D",
+    "title": "Travaux",
+    "fields": [
+      {
+        "key": "debut",
+        "label": "Date de début",
+        "kind": "date",
+        "required": true
+      },
+      {
+        "key": "fin",
+        "label": "Date de fin",
+        "kind": "date",
+        "required": false
+      },
+      {
+        "key": "nature",
+        "label": "Nature des travaux",
+        "kind": "textarea",
+        "required": true
+      },
+      {
+        "key": "entrepreneurs",
+        "label": "Noms des entrepreneurs",
+        "kind": "textarea",
+        "required": true
+      },
+      {
+        "key": "architecte",
+        "label": "Architecte ou technicien chargé de surveiller les travaux",
+        "kind": "text",
+        "required": false
+      }
+    ]
+  },
+  {
+    "code": "E",
+    "title": "Personnel de sécurité",
+    "fields": [
+      {
+        "key": "nom",
+        "label": "Nom",
+        "kind": "text",
+        "required": true
+      },
+      {
+        "key": "prenom",
+        "label": "Prénom",
+        "kind": "text",
+        "required": true
+      },
+      {
+        "key": "fonction",
+        "label": "Fonction",
+        "kind": "text",
+        "required": true
+      },
+      {
+        "key": "rang",
+        "label": "Rang hiérarchique (0 = direction)",
+        "kind": "number",
+        "required": true
+      },
+      {
+        "key": "superieur",
+        "label": "Responsable hiérarchique nominatif",
+        "kind": "text",
+        "required": false
+      },
+      {
+        "key": "niveau",
+        "label": "Niveau de qualification",
+        "kind": "text",
+        "required": true
+      },
+      {
+        "key": "formations",
+        "label": "Formations, dates et validités",
+        "kind": "textarea",
+        "required": true
+      },
+      {
+        "key": "habilitation",
+        "label": "Date d’habilitation",
+        "kind": "date",
+        "required": true
+      },
+      {
+        "key": "statut",
+        "label": "Statut (actif, suspendu ou parti)",
+        "kind": "text",
+        "required": true
+      },
+      {
+        "key": "echeance",
+        "label": "Fin de validité de l’habilitation",
+        "kind": "date",
+        "required": false
+      }
+    ]
+  },
+  {
+    "code": "F",
+    "title": "Consignes et évacuation",
+    "fields": [
+      {
+        "key": "generales",
+        "label": "Consignes générales et particulières en cas d’incendie",
+        "kind": "textarea",
+        "required": true
+      },
+      {
+        "key": "handicap",
+        "label": "Évacuation et mise en sécurité pour les différents handicaps",
+        "kind": "textarea",
+        "required": true
+      },
+      {
+        "key": "rassemblement",
+        "label": "Point de rassemblement et organisation",
+        "kind": "textarea",
+        "required": true
+      }
+    ]
+  },
+  {
+    "code": "G",
+    "title": "Contrôles et observations",
+    "fields": [
+      {
+        "key": "date",
+        "label": "Date du contrôle ou de la vérification",
+        "kind": "date",
+        "required": true
+      },
+      {
+        "key": "nature",
+        "label": "Nature du contrôle",
+        "kind": "text",
+        "required": true
+      },
+      {
+        "key": "intervenant",
+        "label": "Nom de l’intervenant ou de l’organisme",
+        "kind": "text",
+        "required": true
+      },
+      {
+        "key": "resultat",
+        "label": "Résultat",
+        "kind": "textarea",
+        "required": true
+      },
+      {
+        "key": "observations",
+        "label": "Observations et mesures correctives",
+        "kind": "textarea",
+        "required": true
+      },
+      {
+        "key": "echeance",
+        "label": "Prochaine échéance",
+        "kind": "date",
+        "required": false
+      },
+      {
+        "key": "suivi",
+        "label": "Suivi d’une observation",
+        "kind": "followup",
+        "required": true
+      },
+      {
+        "key": "gravite",
+        "label": "Gravité de l’observation (1 faible à 4 critique)",
+        "kind": "number",
+        "required": false
+      }
+    ]
+  },
+  {
+    "code": "H",
+    "title": "Exercices incendie",
+    "fields": [
+      {
+        "key": "date",
+        "label": "Date de l’exercice",
+        "kind": "date",
+        "required": true
+      },
+      {
+        "key": "duree",
+        "label": "Durée en minutes",
+        "kind": "number",
+        "required": true
+      },
+      {
+        "key": "participants",
+        "label": "Nombre de participants",
+        "kind": "number",
+        "required": true
+      },
+      {
+        "key": "scenario",
+        "label": "Scénario",
+        "kind": "textarea",
+        "required": true
+      },
+      {
+        "key": "handicap",
+        "label": "Mesures pour les personnes en situation de handicap",
+        "kind": "textarea",
+        "required": true
+      },
+      {
+        "key": "bilan",
+        "label": "Bilan et améliorations",
+        "kind": "textarea",
+        "required": true
+      },
+      {
+        "key": "echeance",
+        "label": "Prochain exercice",
+        "kind": "date",
+        "required": false
+      }
+    ]
+  },
+  {
+    "code": "I",
+    "title": "Solutions d’effet équivalent (SEE)",
+    "fields": [
+      {
+        "key": "nature",
+        "label": "Nature et conception de la solution",
+        "kind": "textarea",
+        "required": true
+      },
+      {
+        "key": "mise_en_oeuvre",
+        "label": "Modalités de mise en œuvre",
+        "kind": "textarea",
+        "required": true
+      },
+      {
+        "key": "exploitation",
+        "label": "Conditions d’exploitation",
+        "kind": "textarea",
+        "required": true
+      },
+      {
+        "key": "entretien",
+        "label": "Entretien périodique et maintenance",
+        "kind": "textarea",
+        "required": true
+      },
+      {
+        "key": "attestations",
+        "label": "Références des attestations d’objectifs et de bonne mise en œuvre",
+        "kind": "textarea",
+        "required": true
+      },
+      {
+        "key": "modifications",
+        "label": "Modifications et incidences sur les objectifs incendie",
+        "kind": "textarea",
+        "required": true
+      }
+    ]
+  }
+]

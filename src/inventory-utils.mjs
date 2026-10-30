@@ -1,0 +1,8 @@
+export const conditions={new:'Neuf',good:'Bon',worn:'Usé',faulty:'Défectueux',out_of_service:'Hors service'};
+export const placeKinds={level:'Niveau',zone:'Zone',room:'Pièce'};
+export const units={kWh:'kWh',m3:'m³',L:'L',h:'h'};
+export function path(items,id){const index=new Map(items.map(p=>[p.id,p]));const names=[],seen=new Set();while(id&&index.has(id)&&!seen.has(id)&&seen.size<64){seen.add(id);const p=index.get(id);names.unshift(p.name);id=p.parent_id}return names.join(' / ')||'Non renseigné'}
+export function within(items,id,parent){if(!parent)return true;const index=new Map(items.map(p=>[p.id,p]));const seen=new Set();while(id&&!seen.has(id)&&seen.size<64){if(id===parent)return true;seen.add(id);id=index.get(id)?.parent_id}return false}
+export function quantity(value){const s=String(value).trim().replace(',','.');if(!/^\d{1,13}(\.\d{1,3})?$/.test(s))throw Error('Quantité positive attendue, avec au plus trois décimales.');const [a,b='']=s.split('.');const n=Number(a)*1000+Number(b.padEnd(3,'0'));if(!Number.isSafeInteger(n)||n>1e15)throw Error('Quantité trop grande.');return n}
+export function consumption(readings,unit,mode){let previous=null;return readings.filter(r=>!r.cancelled&&r.unit===unit&&r.mode===mode).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id)).map(r=>{const value=mode==='interval'?r.quantity/1000:(previous===null||r.reset?null:(r.quantity-previous)/1000);previous=r.quantity;return {date:r.date,value:value!==null&&value<0?null:value,period_start:r.period_start,index:r.quantity/1000,reset:r.reset}})}
+export const qrPayload=e=>'SERP1:'+e.asset_key;

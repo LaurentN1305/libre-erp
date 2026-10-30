@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {parseMoney,addDays,dayNumber,ganttSpan} from '../src/work-utils.mjs';
+test('Les montants en euros sont convertis exactement en centimes',()=>{assert.equal(parseMoney('1 234,56'),123456);assert.equal(parseMoney('0,10')+parseMoney('0,20'),30);assert.equal(parseMoney('125.5'),12550);for(const value of ['-2','12,345','1e6','','Infinity'])assert.throws(()=>parseMoney(value));});
+test('Le planning compte des jours calendaires à travers les changements d’heure',()=>{assert.equal(dayNumber('2026-03-30')-dayNumber('2026-03-28'),2);assert.equal(addDays('2024-02-28',1),'2024-02-29');assert.throws(()=>dayNumber('2026-02-30'));});
+test('Le Gantt borne les tâches visibles et affiche les tâches sur une journée',()=>{assert.deepEqual(ganttSpan('2026-10-01','2026-10-01','2026-10-01','2026-10-10'),{left:0,width:10});assert.deepEqual(ganttSpan('2026-09-01','2026-10-05','2026-10-01','2026-10-10'),{left:0,width:50});assert.equal(ganttSpan('2026-11-01','2026-11-02','2026-10-01','2026-10-10'),null);assert.throws(()=>ganttSpan('2026-10-03','2026-10-01','2026-10-01','2026-10-10'));});

@@ -1,0 +1,13 @@
+{
+  "bundle": {
+    "resources": {
+      "resources/securite-erp-recovery.exe": "recovery/securite-erp-recovery.exe",
+      "resources/Retour-Version.ps1": "recovery/Retour-Version.ps1"
+    },
+    "windows": {
+      "wix": {
+        "upgradeCode": "33607b9f-8084-5db4-9572-ea078a36b22d"
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import '../src/styles.css';
+const buildings=[{id:'test',name:'École des Tilleuls',address:'12 place de la République',category:4,capacity:180,types:['R'],manager:'admin',manager_name:'Responsable de test',photo:false,archived:false,editable:true,compliance:{total:0,compliant:0,non_compliant:0,unknown:0},budget:{count:0,estimated:0,actual:0},critical:0,deadlines:[]}];
+(window as any).__TAURI_INTERNALS__={invoke:async(cmd:string)=>cmd==='dashboard_snapshot'?{buildings,types:[{code:'R',label:'Enseignement'},{code:'W',label:'Administrations'}],managers:[{id:'admin',name:'Responsable de test'}],can_create:true}:cmd==='building_photo'?null:undefined};
+const {Dashboard}=await import('../src/Dashboard');
+createRoot(document.getElementById('root')!).render(<div className="app"><aside className="sidebar"><div className="brand">Sécurité ERP</div><p className="side-label">APERÇU DE TEST</p><nav className="side-nav"><button aria-current="page">Tableau de bord</button><button>Bâtiments</button><button>Paramètres</button></nav></aside><div className="workspace"><header className="topbar">Validation visuelle M1 · données fictives, sans base utilisateur</header><main id="main"><Dashboard session={{token:'test',user:{id:'admin',login:'test',display_name:'Test',roles:['exploitant'],active:true,mfa:false,scope:'Test'},permissions:[]}} buildingMode={false} searchTarget={null} onTargetConsumed={()=>{}}/></main></div></div>);

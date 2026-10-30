@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "Fenêtre locale ; toute opération métier passe par des commandes Rust authentifiées.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

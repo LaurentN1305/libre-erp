@@ -1,0 +1,1 @@
+export function createReportPdf(table:{title:string;generated_at:string;columns:{key:string;label:string;kind:string}[];rows:(string|number|null)[][];note:string},fontBytes?:Uint8Array,logo?:string|null):Promise<Uint8Array>;

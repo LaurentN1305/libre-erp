@@ -1,0 +1,3 @@
+import {Place,Reading,Equipment} from './inventory-types';
+export const conditions:Record<string,string>;export const placeKinds:Record<string,string>;export const units:Record<string,string>;
+export function path(items:Place[],id:string|null|undefined):string;export function within(items:Place[],id:string|null,parent:string):boolean;export function quantity(v:string):number;export function consumption(readings:Reading[],unit:string,mode:string):{date:string;value:number|null;period_start:string|null;index:number;reset:boolean}[];export function qrPayload(e:Pick<Equipment,'asset_key'>):string;
