@@ -23,7 +23,8 @@ try{
     $taskStream=[IO.File]::Open($taskVaultFile,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
     try{$taskStream.Write($taskProtected,0,$taskProtected.Length);$taskStream.Flush($true)}finally{$taskStream.Dispose()}
     $taskKeys=$taskSecretJson | ConvertFrom-Json
-    [pscustomobject]@{format=1;tauri=$taskKeys.tauri_public;manifest=$taskKeys.manifest_public} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $taskVault 'publiques.json') -Encoding UTF8
+    $taskPublicJson=[pscustomobject]@{format=1;tauri=$taskKeys.tauri_public;manifest=$taskKeys.manifest_public} | ConvertTo-Json
+    [IO.File]::WriteAllText((Join-Path $taskVault 'publiques.json'),$taskPublicJson,(New-Object Text.UTF8Encoding($false)))
     Write-Host "Coffre de signature cree : $taskVault. Les cles privees restent chiffrees pour votre compte Windows."
 }finally{
     if($taskPrivateBytes){[Array]::Clear($taskPrivateBytes,0,$taskPrivateBytes.Length)}

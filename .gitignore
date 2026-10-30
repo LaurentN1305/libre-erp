@@ -32,3 +32,5 @@ master.portable
 *.msi
 *.msix
 *.pdb
+
+*.erp-cles

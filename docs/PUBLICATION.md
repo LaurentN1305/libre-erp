@@ -39,4 +39,15 @@ La préparation ne téléverse rien sur GitHub. Publier d’abord les paquets et
 
 Le coffre DPAPI est lié au compte Windows : une simple copie vers une clé USB ne garantit pas la récupération sur un autre PC. Prévoir une sauvegarde éditeur transportable protégée avant d’activer la première mise à jour publique. Ne pas régénérer une clé déjà intégrée à une application installée.
 
-État de cette préparation : validation sur des clés jetables (coffre, relecture et signature Tauri liée à une version), 34 tests Rust réussis et 11 tests Node réussis. Les deux tests réseau facultatifs restent ignorés. La création des clés de production et la première publication signée nécessitent encore la validation de l’éditeur. L’ancienne version installée ne possède pas encore les clés publiques : une première installation manuelle de la version configurée sera nécessaire.
+État de cette préparation : validation sur des clés jetables (coffre, relecture et signature Tauri liée à une version), 34 tests Rust réussis et 11 tests Node réussis. Les deux tests réseau facultatifs restent ignorés. Les clés de production ont été créées après accord explicite de l’éditeur pour leur conservation sur son PC. Leur coffre chiffré a été relu et une signature Tauri de contrôle liée à une version a réussi. Les clés privées ne sont pas publiées. La sauvegarde transportable du coffre et la première publication signée restent à effectuer. L’ancienne version installée ne possède pas encore les clés publiques : une première installation manuelle de la version configurée sera nécessaire.
+
+
+## Sauvegarder les clés avant la première publication
+
+Sur le PC éditeur, double-cliquer sur `Sauvegarder-Cles-Signature.cmd`. Choisir un nouveau fichier `.erp-cles`, puis saisir deux fois une phrase d’au moins 12 caractères dans la console locale (saisie masquée). Ne jamais communiquer cette phrase dans un chat ou sur GitHub.
+
+Le fichier obtenu est chiffré et relu immédiatement pour vérifier sa cohérence. Le copier sur un support séparé du PC et conserver sa phrase à part. Ce fichier ne doit pas être publié ; il est ignoré par Git.
+
+Sur un autre PC ou compte Windows, `Restaurer-Cles-Signature.cmd` permet de choisir ce fichier et de saisir la phrase. La restauration recrée un coffre Windows à partir des mêmes clés ; elle refuse de remplacer un coffre existant. Les logiciels déjà distribués continuent ainsi de reconnaître les signatures.
+
+Le test automatique du format de sauvegarde vérifie la relecture, le rejet d’une mauvaise phrase et le rejet d’une modification du contenu. Aucune sauvegarde des clés de production n’a été créée automatiquement : sa phrase doit être choisie et conservée par l’éditeur.
