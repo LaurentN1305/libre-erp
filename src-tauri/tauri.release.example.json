@@ -1,15 +1,10 @@
 {
-  "bundle": {
-    "createUpdaterArtifacts": true,
-    "windows": {
-      "certificateThumbprint": "REPLACE_WITH_CERTIFICATE_THUMBPRINT",
-      "timestampUrl": "http://timestamp.digicert.com"
-    }
-  },
+  "bundle": { "createUpdaterArtifacts": true },
   "plugins": {
     "updater": {
       "pubkey": "REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY",
-      "endpoints": ["https://REPLACE_WITH_RELEASE_HOST/stable/{{target}}/{{arch}}/{{current_version}}"]
+      "requireSignedVersion": true,
+      "endpoints": ["https://github.com/LaurentN1305/libre-erp/releases/download/stable/windows-x86_64-{{bundle_type}}.json"]
     }
   }
 }

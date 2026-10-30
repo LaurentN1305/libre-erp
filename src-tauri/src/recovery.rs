@@ -3,7 +3,7 @@ use crate::{backup, db};
 use anyhow::{bail, Context, Result};
 use std::{
     io::{self, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 use zeroize::Zeroizing;
 fn prompt(label: &str) -> Result<String> {
@@ -14,6 +14,30 @@ fn prompt(label: &str) -> Result<String> {
     Ok(s.trim().to_string())
 }
 pub fn run() -> Result<()> {
+    let args: Vec<_> = std::env::args_os().collect();
+    if args.get(1).is_some_and(|a| a == "--verifier-installateur") {
+        use base64::Engine;
+        if args.len() != 4 {
+            bail!("Usage : --verifier-installateur <installeur> <preuve.json>")
+        }
+        let key =
+            base64::engine::general_purpose::STANDARD
+                .decode(option_env!("ERP_MANIFEST_PUBLIC_KEY").context(
+                    "Outil de vérification non configuré avec la clé publique éditeur",
+                )?)?;
+        let key: [u8; 32] = key
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("Clé publique invalide"))?;
+        let proof = PathBuf::from(&args[3]);
+        if std::fs::metadata(&proof)?.len() > 1024 * 1024 {
+            bail!("Preuve trop volumineuse")
+        }
+        let version =
+            crate::release_proof::verify_file(&std::fs::read(proof)?, Path::new(&args[2]), &key)?;
+        println!("Installeur authentifié — version {version}");
+        return Ok(());
+    }
+
     println!("LIBRE ERP — RÉCUPÉRATION DES DONNÉES\nFermez d’abord l’application principale.\n");
     if std::env::current_exe()?
         .parent()

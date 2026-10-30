@@ -18,7 +18,7 @@ if (mode === 'generer' && keyPath && input) {
   const payload = readFileSync(input);
   if (payload.length > 512 * 1024) throw new Error('Payload trop volumineux.');
   const parsed = JSON.parse(payload.toString('utf8'));
-  if (!['stable', 'beta'].includes(parsed.channel) || parsed.target !== 'windows-x86_64' || !Number.isSafeInteger(parsed.sequence) || parsed.sequence < 1 || !parsed.release?.signature || !parsed.release?.version || !parsed.release?.url || !parsed.expires_at) throw new Error('Payload incomplet.');
+  if (!['stable', 'beta'].includes(parsed.channel) || parsed.target !== 'windows-x86_64' || !Number.isSafeInteger(parsed.sequence) || parsed.sequence < 1 || !parsed.release?.signature || !/^[a-f0-9]{64}$/i.test(parsed.release?.sha256??'') || !parsed.release?.version || !parsed.release?.url || !parsed.expires_at) throw new Error('Payload incomplet.');
   const key = createPrivateKey({ key: readFileSync(keyPath), passphrase: process.env.ERP_MANIFEST_KEY_PASSWORD });
   if (key.asymmetricKeyType !== 'ed25519') throw new Error('La clé doit être Ed25519.');
   const signature = sign(null, payload, key);

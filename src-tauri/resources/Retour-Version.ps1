@@ -1,16 +1,22 @@
-param([Parameter(Mandatory=$true)][string]$Installateur, [Parameter(Mandatory=$true)][string]$EmpreinteEditeur)
-$ErrorActionPreference = 'Stop'
-$taskPath = (Resolve-Path -LiteralPath $Installateur).Path
-if ([IO.Path]::GetExtension($taskPath) -notin @('.exe','.msi')) { throw 'Format installeur inconnu.' }
-$taskSignature = Get-AuthenticodeSignature -LiteralPath $taskPath
-if ($taskSignature.Status -ne 'Valid') { throw 'La signature Windows de cet installeur est invalide.' }
-if ($taskSignature.SignerCertificate.Thumbprint -ne $EmpreinteEditeur.Replace(' ','')) { throw 'Le certificat ne correspond pas a celui de votre editeur.' }
-Write-Host 'Fermez application et outil de recuperation avant de continuer.'
-$taskConfirm = Read-Host 'Saisissez RETOUR pour lancer cet ancien installeur signe'
-if ($taskConfirm -ne 'RETOUR') { throw 'Operation annulee.' }
-if ([IO.Path]::GetExtension($taskPath) -eq '.msi') {
-    Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/i',('"' + $taskPath + '"')) -WindowStyle Hidden -Wait
-} else {
-    Start-Process -FilePath $taskPath -WindowStyle Hidden -Wait
-}
-Write-Host 'Utilisez ensuite outil de recuperation pour restaurer la sauvegarde compatible si necessaire.'
+param([Parameter(Mandatory=$true)][string]$Installateur,[Parameter(Mandatory=$true)][string]$Preuve,[string]$Verificateur=(Join-Path $PSScriptRoot 'securite-erp-recovery.exe'))
+$ErrorActionPreference='Stop'
+$taskPath=(Resolve-Path -LiteralPath $Installateur).Path
+$taskProof=(Resolve-Path -LiteralPath $Preuve).Path
+$taskVerifier=(Resolve-Path -LiteralPath $Verificateur).Path
+if([IO.Path]::GetExtension($taskPath) -notin @('.exe','.msi')){throw 'Format installeur inconnu.'}
+# Garder le fichier verrouille en lecture pendant controle, confirmation et lancement.
+$taskLock=[IO.File]::Open($taskPath,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+try {
+    & $taskVerifier '--verifier-installateur' $taskPath $taskProof
+    if($LASTEXITCODE -ne 0){throw 'Preuve cryptographique invalide : aucun installeur lance.'}
+    Write-Host 'Fermez Libre ERP et conservez une sauvegarde compatible avec cette ancienne version.'
+    $taskConfirm=Read-Host 'Saisissez RETOUR pour lancer cet installeur authentifie'
+    if($taskConfirm -ne 'RETOUR'){throw 'Operation annulee.'}
+    if([IO.Path]::GetExtension($taskPath) -eq '.msi'){
+        $taskProcess=Start-Process -FilePath 'msiexec.exe' -ArgumentList @('/i',('"'+$taskPath+'"')) -WindowStyle Hidden -Wait -PassThru
+    }else{
+        $taskProcess=Start-Process -FilePath $taskPath -WindowStyle Hidden -Wait -PassThru
+    }
+    if($taskProcess.ExitCode -notin @(0,3010)){throw "Installation terminee avec le code $($taskProcess.ExitCode)."}
+    Write-Host 'Utilisez ensuite la recuperation pour restaurer la sauvegarde compatible si necessaire.'
+} finally {$taskLock.Dispose()}

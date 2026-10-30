@@ -2,7 +2,9 @@ name: Vérifications Windows
 on:
   push:
     branches: [main]
+    paths-ignore: ['**/*.md', LICENSE]
   pull_request:
+    paths-ignore: ['**/*.md', LICENSE]
   workflow_dispatch:
 permissions:
   contents: read
@@ -33,6 +35,14 @@ jobs:
           rustup default stable
           if (Test-Path 'C:/Strawberry/perl/bin/perl.exe') { 'C:/Strawberry/perl/bin' | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8 }
           elseif (-not (Get-Command perl -ErrorAction SilentlyContinue)) { throw 'Perl est nécessaire pour OpenSSL/SQLCipher.' }
+      - name: Cache des dépendances Rust
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: windows-rust-${{ hashFiles('src-tauri/Cargo.lock', 'src-tauri/Cargo.toml') }}
       - name: Installer les dépendances frontend
         run: pnpm install --frozen-lockfile
       - name: Vérifier et compiler le frontend

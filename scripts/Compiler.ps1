@@ -10,6 +10,7 @@ Invoke-PackageManager @('test')
 Write-Host '3/4 - Tests du moteur et du chiffrement' -ForegroundColor Cyan
 Invoke-Checked 'cargo' @('test','--locked','--manifest-path','src-tauri/Cargo.toml')
 Write-Host '4/4 - Fabrication des installateurs Windows' -ForegroundColor Cyan
+$taskCurrentVersion=(Get-Content -LiteralPath (Join-Path $taskRoot 'package.json') -Raw | ConvertFrom-Json).version
 $taskProfile = if ($Essai) { 'debug' } else { 'release' }
 $taskRecoveryArgs = @('build','--locked','--manifest-path','src-tauri/Cargo.toml','--bin','securite-erp-recovery')
 if ($Essai) { $taskRecoveryArgs = @('build','--locked','--manifest-path','src-tauri/Cargo.toml','--bins','--features','custom-protocol','-j','1') }
@@ -28,21 +29,26 @@ if ($Publication) {
     }
     $taskRelease = $taskText | ConvertFrom-Json
     if (-not $taskRelease.bundle.createUpdaterArtifacts) { throw 'La publication doit activer createUpdaterArtifacts.' }
-    if (-not $taskRelease.bundle.windows.certificateThumbprint) { throw 'Certificat de signature Windows absent.' }
-    $taskSigner = Get-Command signtool -ErrorAction SilentlyContinue
-    if (-not $taskSigner) { throw 'signtool doit etre disponible pour signer outil de recuperation.' }
-    Invoke-Checked 'signtool' @('sign','/sha1',$taskRelease.bundle.windows.certificateThumbprint,'/fd','SHA256','/tr',$taskRelease.bundle.windows.timestampUrl,'/td','SHA256','src-tauri/resources/securite-erp-recovery.exe')
+    if ($taskRelease.bundle.windows.certificateThumbprint) {
+        if (-not (Get-Command signtool -ErrorAction SilentlyContinue)) { throw 'signtool absent pour le certificat facultatif configure.' }
+        Invoke-Checked 'signtool' @('sign','/sha1',$taskRelease.bundle.windows.certificateThumbprint,'/fd','SHA256','/tr',$taskRelease.bundle.windows.timestampUrl,'/td','SHA256','src-tauri/resources/securite-erp-recovery.exe')
+    } else { Write-Host 'Sans certificat Windows : les signatures cryptographiques updater restent obligatoires.' -ForegroundColor Cyan }
     $taskArgs += @('--config','src-tauri/tauri.release.json')
 } else {
     Write-Host 'Version de test : installateurs non signes, mises a jour non publiees.' -ForegroundColor Yellow
 }
 Invoke-PackageManager $taskArgs
 $taskOutput = Join-Path $taskRoot "src-tauri\target\$taskProfile\bundle"
-if ($Publication) {
-    foreach ($taskInstaller in Get-ChildItem -LiteralPath $taskOutput -Recurse -File | Where-Object { $_.Extension -in @('.exe','.msi') }) {
+if ($Publication -and $taskRelease.bundle.windows.certificateThumbprint) {
+    foreach ($taskInstaller in Get-ChildItem -LiteralPath $taskOutput -Recurse -File | Where-Object { $_.Extension -in @('.exe','.msi') -and $_.Name.Contains('_'+$taskCurrentVersion+'_') }) {
         $taskSignature = Get-AuthenticodeSignature -LiteralPath $taskInstaller.FullName
         if ($taskSignature.Status -ne 'Valid') { throw "Signature Windows invalide : $($taskInstaller.Name)" }
     }
+}
+if ($Publication) {
+    $taskSignedInstallers=@(Get-ChildItem -LiteralPath $taskOutput -Recurse -File | Where-Object { $_.Extension -in @('.exe','.msi') -and $_.Name.Contains('_'+$taskCurrentVersion+'_') })
+    if($taskSignedInstallers.Count -lt 2){throw 'Installeurs EXE et MSI attendus.'}
+    foreach($taskInstaller in $taskSignedInstallers){if(-not (Test-Path -LiteralPath ($taskInstaller.FullName+'.sig'))){throw "Signature updater absente : $($taskInstaller.Name)"}}
 }
 Write-Host "Termine. Les installateurs se trouvent dans : $taskOutput" -ForegroundColor Green
 Invoke-Item -LiteralPath $taskOutput

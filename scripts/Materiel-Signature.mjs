@@ -1,0 +1,3 @@
+// Sortie privée : uniquement capturée en mémoire par Initialiser-Signatures.ps1.
+import {generateKeyPairSync,randomBytes} from 'node:crypto';import {readFileSync} from 'node:fs';
+const path=process.argv[2];if(!path)throw Error('Chemin de clé Tauri requis');const password=randomBytes(48).toString('base64url');const{privateKey,publicKey}=generateKeyPairSync('ed25519');const jwk=publicKey.export({format:'jwk'});process.stdout.write(JSON.stringify({format:1,tauri_private:readFileSync(path,'utf8').trim(),tauri_public:readFileSync(path+'.pub','utf8').trim(),manifest_private:privateKey.export({format:'pem',type:'pkcs8',cipher:'aes-256-cbc',passphrase:password}),manifest_password:password,manifest_public:Buffer.from(jwk.x,'base64url').toString('base64')}));

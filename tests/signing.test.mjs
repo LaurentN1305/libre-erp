@@ -12,7 +12,7 @@ test('Le manifeste signé lie les octets et rejette une modification', () => {
     const env = { ...process.env, ERP_MANIFEST_KEY_PASSWORD: 'Cle de test jetable uniquement' };
     const script = resolve('scripts/Signer-Manifeste.mjs');
     execFileSync(process.execPath, [script, 'generer', key, pub], { env });
-    const payload = Buffer.from(JSON.stringify({ channel: 'stable', target: 'windows-x86_64', sequence: 1, expires_at: '2030-01-01T00:00:00Z', release: { version: '0.1.1', url: 'https://example.invalid/setup.exe', signature: 'test-only' } }));
+    const payload = Buffer.from(JSON.stringify({ channel: 'stable', target: 'windows-x86_64', sequence: 1, expires_at: '2030-01-01T00:00:00Z', release: { version: '0.1.1', url: 'https://example.invalid/setup.exe', signature: 'test-only', sha256:'a'.repeat(64) } }));
     writeFileSync(payloadPath, payload);
     execFileSync(process.execPath, [script, 'signer', key, payloadPath, output], { env });
     const raw = Buffer.from(readFileSync(pub, 'utf8').trim(), 'base64');

@@ -1,8 +1,11 @@
 use crate::{audit, auth, db, Core};
 use anyhow::{bail, Context, Result};
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
-use ed25519_dalek::{Signature, VerifyingKey};
-use serde::{Deserialize, Serialize};
+
+#[cfg(test)]
+use crate::release_proof::Envelope;
+use crate::release_proof::{authenticate as authenticated_payload, Payload};
+use serde::Serialize;
 use sqlx::Row;
 use std::{path::Path, time::Duration};
 use tauri_plugin_updater::{Update, UpdaterExt};
@@ -18,21 +21,16 @@ pub struct Status {
     manifest_verified: bool,
     package_verified: bool,
 }
-#[derive(Serialize, Deserialize)]
-struct Envelope {
-    payload: String,
-    signature: String,
-}
-#[derive(Deserialize)]
-struct Payload {
-    channel: String,
-    target: String,
-    sequence: u64,
-    expires_at: String,
-    release: serde_json::Value,
+fn installer_name() -> Result<&'static str> {
+    match tauri::utils::platform::bundle_type() {
+        Some(tauri::utils::config::BundleType::Msi) => Ok("msi"),
+        Some(tauri::utils::config::BundleType::Nsis) => Ok("nsis"),
+        _ => bail!("Les mises à jour nécessitent une version installée par EXE ou MSI"),
+    }
 }
 fn configured() -> bool {
     !crate::portable::active()
+        && installer_name().is_ok()
         && option_env!("ERP_MANIFEST_PUBLIC_KEY").is_some()
         && option_env!("ERP_UPDATE_BASE_URL").is_some()
 }
@@ -115,18 +113,6 @@ pub async fn channel(core: &Core, token: &str, channel: &str) -> Result<()> {
     tx.commit().await?;
     audit::checkpoint(&core.pool, &core.root).await
 }
-fn authenticated_payload(bytes: &[u8], key: &[u8; 32]) -> Result<Payload> {
-    if bytes.len() > 1024 * 1024 {
-        bail!("Manifeste trop volumineux.");
-    }
-    let env: Envelope = serde_json::from_slice(bytes)?;
-    let payload = B64.decode(env.payload)?;
-    let sig = B64.decode(env.signature)?;
-    VerifyingKey::from_bytes(key)?
-        .verify_strict(&payload, &Signature::from_slice(&sig)?)
-        .context("Signature Ed25519 du manifeste invalide")?;
-    Ok(serde_json::from_slice(&payload)?)
-}
 fn validate_envelope(bytes: &[u8], channel: &str) -> Result<(Payload, serde_json::Value)> {
     let key = B64.decode(
         option_env!("ERP_MANIFEST_PUBLIC_KEY").context("Clé du manifeste non configurée")?,
@@ -149,21 +135,16 @@ fn validate_envelope(bytes: &[u8], channel: &str) -> Result<(Payload, serde_json
     if channel == "stable" && !remote.pre.is_empty() {
         bail!("Version bêta reçue sur le canal stable.");
     }
-    let base = url::Url::parse(option_env!("ERP_UPDATE_BASE_URL").context("Serveur absent")?)?;
-    let download = url::Url::parse(
+    crate::update_transport::configured()?.release(
         value.release["url"]
             .as_str()
             .context("URL de téléchargement absente")?,
     )?;
-    if base.scheme() != "https"
-        || download.scheme() != "https"
-        || download.host_str() != base.host_str()
-        || download.port_or_known_default() != base.port_or_known_default()
-        || !download.username().is_empty()
-        || download.password().is_some()
-    {
-        bail!("Hôte de téléchargement non autorisé.");
+    crate::release_proof::expected_hash(&value)?;
+    if value.release["installer"].as_str() != Some(installer_name()?) {
+        bail!("Le paquet ne correspond pas au type d’installation EXE/MSI")
     }
+
     let release = value.release.clone();
     Ok((value, release))
 }
@@ -197,12 +178,13 @@ async fn check_inner(core: &Core, app: &tauri::AppHandle) -> Result<()> {
     let base = option_env!("ERP_UPDATE_BASE_URL")
         .unwrap()
         .trim_end_matches('/');
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(25))
-        .redirect(reqwest::redirect::Policy::none())
-        .build()?;
+    let client = crate::update_transport::configured()?.client(Duration::from_secs(600))?;
     let mut response = client
-        .get(format!("{base}/{channel}/windows-x86_64.json"))
+        .get(format!(
+            "{base}/{channel}/windows-x86_64-{}.json",
+            installer_name()?
+        ))
+        .timeout(Duration::from_secs(25))
         .send()
         .await?
         .error_for_status()?;
@@ -245,6 +227,7 @@ async fn check_inner(core: &Core, app: &tauri::AppHandle) -> Result<()> {
             body.extend_from_slice(&chunk);
         }
         update.verify(&body)?;
+        crate::release_proof::verify_bytes(&payload, &body)?;
         let path = core.root.join("updates/package.bin");
         db::atomic_write(&path, &body)?;
         db::atomic_write(&core.root.join("updates/envelope.json"), &bytes)?;
@@ -284,7 +267,9 @@ pub async fn pending(core: &Core, app: &tauri::AppHandle) -> Result<Update> {
         .updater()?
         .restore_update(release)?
         .context("Aucune mise à jour applicable")?;
-    update.verify(&std::fs::read(core.root.join("updates/package.bin"))?)?;
+    let package = std::fs::read(core.root.join("updates/package.bin"))?;
+    update.verify(&package)?;
+    crate::release_proof::verify_bytes(&payload, &package)?;
     Ok(update)
 }
 pub async fn install(

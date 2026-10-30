@@ -22,3 +22,21 @@ Le dépôt public et les contrôles automatiques ne signifient pas que les mises
 - [Updater Tauri 2](https://v2.tauri.app/plugin/updater/)
 - [Signature Windows Tauri](https://v2.tauri.app/distribute/sign/windows/)
 - [Permissions minimales des workflows GitHub](https://docs.github.com/en/actions/tutorials/authenticate-with-github_token)
+
+
+## Préparation de la signature sans certificat Windows
+
+La description About est harmonisée avec le README. Les outils suivants sont prêts :
+
+- `Initialiser-Signatures.ps1` : crée les deux clés dans un nouveau coffre DPAPI du compte Windows, hors projet, sans remplacer un coffre existant. Les fichiers temporaires de génération sont retirés. Les clés publiques sont séparées.
+- `Fabriquer-Version-Signee.ps1` : charge les clés uniquement pendant la fabrication, prépare la configuration publique Tauri et utilise le profil release. Aucun certificat Authenticode n’est imposé ; les signatures updater restent obligatoires.
+- `Preparer-Version-Signee.ps1 -Canal stable -Sequence N -Sortie DOSSIER_NOUVEAU` : prépare les installeurs, signatures et preuves à partir de sources validées dans Git. Le dossier de sortie est nouveau ; aucune ancienne publication n’est remplacée.
+- `Retour-Version.ps1 -Installateur CHEMIN -Preuve PREUVE_JSON` : fait contrôler l’empreinte signée Ed25519 par l’outil de récupération avant de proposer le retour manuel. Une preuve historique expirée reste utilisable pour un retour volontaire ; une recherche de mise à jour refuse un manifeste expiré.
+
+Les manifestes sont distincts par canal et par format : `stable/windows-x86_64-nsis.json`, `stable/windows-x86_64-msi.json`, et les équivalents sous `beta`. Ils sont destinés aux Releases de canaux `stable` et `beta`. Les installeurs versionnés sont destinés à une Release `vVERSION`. Le client autorise les redirections HTTPS des pièces jointes GitHub vers ses hôtes de téléchargement connus, avec un nombre de sauts borné, puis vérifie les signatures et l’empreinte.
+
+La préparation ne téléverse rien sur GitHub. Publier d’abord les paquets et leurs preuves dans la Release de version, puis les deux manifestes dans la Release du canal. Ne jamais publier `signatures.dpapi`, une clé privée, un mot de passe, ou un fichier temporaire du coffre. Chaque publication utilise une séquence strictement croissante pour son canal.
+
+Le coffre DPAPI est lié au compte Windows : une simple copie vers une clé USB ne garantit pas la récupération sur un autre PC. Prévoir une sauvegarde éditeur transportable protégée avant d’activer la première mise à jour publique. Ne pas régénérer une clé déjà intégrée à une application installée.
+
+État de cette préparation : validation sur des clés jetables (coffre, relecture et signature Tauri liée à une version), 34 tests Rust réussis et 11 tests Node réussis. Les deux tests réseau facultatifs restent ignorés. La création des clés de production et la première publication signée nécessitent encore la validation de l’éditeur. L’ancienne version installée ne possède pas encore les clés publiques : une première installation manuelle de la version configurée sera nécessaire.

@@ -30,6 +30,8 @@ mod integration_tests;
 mod recovery;
 mod register;
 mod scheduler;
+mod release_proof;
+mod update_transport;
 mod updates;
 mod vault;
 mod works;
