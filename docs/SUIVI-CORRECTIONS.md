@@ -36,4 +36,8 @@ Critère : géocodage et récupération du fond testés séparément ; échec ex
 - [Politique de l’API OSM](https://operations.osmfoundation.org/policies/api/) : l’API d’édition n’est pas un service de fond de carte.
 - [Documentation officielle Overpass](https://dev.overpass-api.de/overpass-doc/en/preface/commons.html) : requêtes ponctuelles et limites de service ; pas de garantie de disponibilité publique.
 
-Les deux PDF de démonstration sont locaux, sous `output/pdf`, avec des données fictives. Aucun PDF opérationnel de l’utilisateur n’est publié. La version GitHub distribuée reste 0.11.0 pendant cette recette locale.
+Les deux PDF de démonstration sont locaux, sous `output/pdf`, avec des données fictives. Aucun PDF opérationnel de l’utilisateur n’est publié. La recette locale a été suivie de la publication de la version 0.11.1 après accord de l’utilisateur.
+
+## Publication pour recette de mise à jour
+
+Le 31 octobre 2026, la [version 0.11.1](https://github.com/LaurentN1305/libre-erp/releases/tag/v0.11.1) a été publiée à la demande de l’utilisateur. Le canal stable, séquence 2, est actif pour EXE et MSI. Les empreintes GitHub et les manifestes publics ont été vérifiés. Les manifestes de séquence 1 sont conservés sous des noms d’archive distincts. L’installation détectée sur le poste est la 0.11.0 ; le passage réel vers 0.11.1 reste à valider par l’utilisateur.

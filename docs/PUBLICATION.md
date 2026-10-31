@@ -69,3 +69,11 @@ La [version 0.11.0](https://github.com/LaurentN1305/libre-erp/releases/tag/v0.11
 Contrôles de livraison : compilation release réussie ; signatures Tauri des deux fichiers vérifiées avec les clés publiques, version liée 0.11.0 et rejet d’un digest modifié ; preuves des deux installeurs acceptées par le vérificateur natif ; version MSI 0.11.0, nom Libre ERP et UpgradeCode conservé ; empreintes SHA-256 calculées par GitHub identiques aux fichiers locaux ; manifestes publics téléchargés puis signatures Ed25519 et nouveautés vérifiées. Les clés privées restent dans le coffre local.
 
 Aucune installation réelle n’a été lancée sur les données utilisateur. Le passage d’une version installée à une version suivante reste à tester sur Windows ; la recette d’interface utilise des données fictives. Une version égale à la version installée ne doit pas afficher de notification de nouvelle version. Conserver une sauvegarde transportable des clés éditeur sur un support séparé.
+
+## Version 0.11.1 publiée pour le test de mise à jour
+
+Version publique : [v0.11.1](https://github.com/LaurentN1305/libre-erp/releases/tag/v0.11.1), sources du tag `b0b8508b113be3f971323850688cc0722aa7a4d2`. Le canal stable utilise désormais la séquence 2. Les deux manifestes publics sont identiques aux fichiers préparés et leurs signatures Ed25519 ont été vérifiées, ainsi que les nouveautés. Les tailles et empreintes SHA-256 calculées par GitHub correspondent aux deux installeurs signés. La page latest pointe vers 0.11.1.
+
+Pour remplacer des manifestes sans suppression, téléverser les nouveaux sous des noms de séquence, archiver les noms standards de l’ancienne séquence dans une première sauvegarde de la Release, puis attribuer les noms standards aux nouveaux fichiers dans une seconde sauvegarde. Une permutation de noms en une seule sauvegarde est refusée par GitHub. Vérifier ensuite les URL standard sans paramètre de cache ; la propagation peut demander quelques instants.
+
+La version installée du poste a été lue sans ouvrir ses données : 0.11.0. La recette réelle doit désormais vérifier notification, nouveautés, sauvegarde, fermeture, installation, réouverture en 0.11.1 et conservation des données. Aucun résultat de cette recette utilisateur n’est encore annoncé.

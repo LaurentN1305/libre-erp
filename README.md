@@ -2,7 +2,7 @@
 
 Libre ERP est une application Windows hors ligne dédiée au suivi des bâtiments ERP (établissements recevant du public). Elle centralise la maintenance, les contrats d’entretien, les interventions, les équipements et le registre de sécurité, ainsi que les documents, les échéances et l’historique de chaque bâtiment.
 
-**État : version 0.11.0, schéma SQLite 13.** Le logiciel fonctionne hors ligne pour ses données métier. La recherche cartographique et la vérification de mises à jour sont des actions réseau facultatives.
+**État : version 0.11.1, schéma SQLite 13.** Le logiciel fonctionne hors ligne pour ses données métier. La recherche cartographique et la vérification de mises à jour sont des actions réseau facultatives.
 
 ## Télécharger Libre ERP pour Windows
 
