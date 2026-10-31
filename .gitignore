@@ -34,3 +34,6 @@ master.portable
 *.pdb
 
 *.erp-cles
+
+# Exemplaires PDF locaux de validation
+output/

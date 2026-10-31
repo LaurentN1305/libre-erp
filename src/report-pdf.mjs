@@ -1,12 +1,20 @@
-import {PDFDocument,StandardFonts,rgb} from 'pdf-lib';import fontkit from '@pdf-lib/fontkit';
+import {layout} from './pdf-layout.mjs';
+const formatted=(v,c)=>v==null||v===''?'—':typeof v==='number'?new Intl.NumberFormat('fr-FR',{minimumFractionDigits:c.kind==='money'?2:0,maximumFractionDigits:c.kind==='money'?2:3}).format(v):String(v);
 export async function createReportPdf(table,fontBytes,logo){
  if(table.rows.length>2000)throw Error('Le PDF est limité à 2 000 lignes. Filtrez par bâtiment ou utilisez Excel/CSV.');
- const pdf=await PDFDocument.create();pdf.registerFontkit(fontkit);const font=await pdf.embedFont(fontBytes??StandardFonts.Helvetica,{subset:!!fontBytes});const strong=fontBytes?font:await pdf.embedFont(StandardFonts.HelveticaBold);pdf.setTitle(`Libre ERP — ${table.title}`);pdf.setAuthor('Libre ERP');let page,y;
- function fresh(){page=pdf.addPage([595.28,841.89]);y=770;page.drawText('LIBRE ERP',{x:42,y:804,size:10,font:strong,color:rgb(.65,.11,.2)});page.drawLine({start:{x:42,y:792},end:{x:553,y:792},color:rgb(.65,.11,.2),thickness:1});}
- function draw(s,size,bold){if(y<size+46)fresh();page.drawText(s,{x:42,y,size,font:bold?strong:font,color:rgb(.1,.2,.24)});y-=size+5;}
- function line(value,size=10,bold=false){const clean=String(value??'').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,'').replace(/\r/g,'').replace(/\t/g,'    ');for(const paragraph of clean.split('\n')){let s='';for(const word of paragraph.split(/\s+/)){const candidate=s?s+' '+word:word;if(font.widthOfTextAtSize(candidate,size)<=510){s=candidate;continue}if(s){draw(s,size,bold);s=''}for(const char of word){if(font.widthOfTextAtSize(s+char,size)>510&&s){draw(s,size,bold);s=''}s+=char}}draw(s,size,bold)}}
- fresh();if(logo){const bytes=Uint8Array.from(atob(logo.split(',')[1]),c=>c.charCodeAt(0));const img=logo.startsWith('data:image/png')?await pdf.embedPng(bytes):await pdf.embedJpg(bytes);const scale=Math.min(160/img.width,70/img.height);page.drawImage(img,{x:42,y:y-img.height*scale,width:img.width*scale,height:img.height*scale});y-=img.height*scale+18;}
- line(table.title,22,true);line(`Édition du ${new Date(table.generated_at).toLocaleString('fr-FR',{timeZone:'Europe/Paris'})} · ${table.rows.length} ligne(s)`,10);line(table.note,9);line('');
- for(let r=0;r<table.rows.length;r++){if(y<150)fresh();line(`Fiche ${r+1} / ${table.rows.length}`,12,true);for(let i=0;i<table.columns.length;i++){const c=table.columns[i],v=table.rows[r][i];const shown=v==null||v===''?'—':typeof v==='number'?new Intl.NumberFormat('fr-FR',{minimumFractionDigits:c.kind==='money'?2:0,maximumFractionDigits:c.kind==='money'?2:3}).format(v):String(v);line(`${c.label} : ${shown}`)}line('');}
- if(!table.rows.length)line('Aucune ligne dans ce périmètre.');const pages=pdf.getPages();for(let i=0;i<pages.length;i++)pages[i].drawText(`${table.title} · ${i+1}/${pages.length}`,{x:42,y:24,size:8,font});return pdf.save();
+ const d=await layout(fontBytes,{landscape:true,title:table.title,subtitle:table.title});d.pdf.setTitle(`Libre ERP — ${table.title}`);d.pdf.setAuthor('Libre ERP');
+ d.fresh();await d.logo(logo);d.heading(table.title,23);d.paragraph(`Édition du ${new Date(table.generated_at).toLocaleString('fr-FR',{timeZone:'Europe/Paris'})} | ${table.rows.length} élément(s)`,{size:9});d.paragraph(table.note,{size:9});
+ const works=table.columns.some(c=>c.key==='progress_percent')&&table.columns.some(c=>c.key==='title');
+ const preferred=works?['reference','building','title','priority','status','target_due_on','participants','estimated_budget_cents','actual_budget_cents']:table.columns.slice(0,6).map(c=>c.key);
+ const selected=preferred.map(key=>table.columns.findIndex(c=>c.key===key)).filter(i=>i>=0),remaining=table.columns.map((_,i)=>i).filter(i=>!selected.includes(i)&&!(works&&['kind','planned_start','planned_end','progress_percent'].includes(table.columns[i].key)));
+ const weights=selected.map(i=>({reference:1.05,building:1.35,title:2.1,priority:.65,status:1.25,target_due_on:1.5,estimated_budget_cents:1,actual_budget_cents:1,participants:1.4}[table.columns[i].key]??1.5));
+ const value=(r,key)=>{const i=table.columns.findIndex(c=>c.key===key);return i<0?'':formatted(r[i],table.columns[i]);};
+ const summary=(r,i)=>{const c=table.columns[i];if(works&&c.key==='status')return [formatted(r[i],c),value(r,'kind'),value(r,'progress_percent')?value(r,'progress_percent')+' %':''].filter(Boolean).join('\n');if(works&&c.key==='target_due_on')return formatted(r[i],c)+'\nDébut : '+value(r,'planned_start')+'\nFin : '+value(r,'planned_end');return formatted(r[i],c);};
+ if(table.rows.length)d.table(selected.map(i=>works&&table.columns[i].key==='target_due_on'?'Échéance / prévision':table.columns[i].label),table.rows.map(r=>selected.map(i=>summary(r,i))),weights,{size:8.5});else d.paragraph('Aucune ligne dans ce périmètre.');
+ if(remaining.length&&table.rows.length){d.fresh('Informations complémentaires');d.heading(works?'Descriptions et observations':'Informations complémentaires',19);d.paragraph('Les références ci-dessous permettent de retrouver chaque élément dans le tableau récapitulatif.',{size:9});
+  const ref=table.columns.findIndex(c=>c.key==='reference');
+  d.table(['Référence',...remaining.map(i=>table.columns[i].label)],table.rows.map((r,n)=>[ref>=0?r[ref]:String(n+1),...remaining.map(i=>formatted(r[i],table.columns[i]))]),[1,...remaining.map(()=>4)],{size:10});
+ }
+
+ return d.finish();
 }

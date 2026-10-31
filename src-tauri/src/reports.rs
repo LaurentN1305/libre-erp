@@ -161,6 +161,7 @@ pub async fn table(
                 ("status", "État", "enum"),
                 ("priority", "Priorité", "number"),
                 ("target_due_on", "Échéance", "date"),
+                ("participants", "Intervenants", "participants"),
                 ("planned_start", "Début prévu", "date"),
                 ("planned_end", "Fin prévue", "date"),
                 ("progress_percent", "Avancement (%)", "number"),
@@ -357,6 +358,7 @@ pub async fn table(
                             .map(|n| json!(n as f64 / 100.))
                             .unwrap_or(Value::Null),
                         "number" | "decimal" => val.clone(),
+                        "participants" => json!(val.as_array().map(|a|a.iter().filter_map(|p|p["name"].as_str()).collect::<Vec<_>>().join(" / ")).unwrap_or_default()),
                         "enum" => json!(label(val.as_str().unwrap_or(""))),
                         "deadline" => {
                             let s = text(val);

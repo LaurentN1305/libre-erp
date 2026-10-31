@@ -1,0 +1,8 @@
+Libre ERP 0.11.1 — Lisibilité et présentation
+
+• Barre d’actions du tableau de bord regroupée et alignée, avec adaptation à la largeur de la fenêtre.
+• PDF des interventions en tableaux récapitulatifs, avec intervenants, échéances et budgets selon les droits. Les descriptions complètes figurent à la suite.
+• Registre de sécurité : couverture rouge, logo communal, sommaire paginé, tableaux A à I, traçabilité et annexes conservées.
+• Cartographie : abandon du service OSM d’édition comme service par défaut, nouvelle tentative à chaque actualisation et diagnostic séparé de la recherche d’adresse, du fond OSM et du secours IGN.
+
+Les serveurs OSM peuvent rester indisponibles selon le réseau. Le secours IGN est conservé.

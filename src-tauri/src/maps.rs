@@ -56,7 +56,7 @@ impl Default for Services {
             ign: ign_endpoint(),
             ign_fallback: true,
             geocoder: "https://nominatim.openstreetmap.org/search".into(),
-            geometry: "https://api.openstreetmap.org/api/0.6/map.json".into(),
+            geometry: "https://overpass-api.de/api/interpreter".into(),
         }
     }
 }
@@ -149,8 +149,8 @@ pub async fn settings(c: &Core) -> Result<Services> {
         .map(|s| serde_json::from_str(&s))
         .transpose()?
         .unwrap_or_default();
-    if services.geometry == "https://overpass.private.coffee/api/interpreter" {
-        services.geometry = "https://api.openstreetmap.org/api/0.6/map.json".into();
+    if legacy_geometry(&services.geometry) {
+        services.geometry = Services::default().geometry;
     }
     Ok(services)
 }
@@ -160,6 +160,7 @@ pub async fn save_settings(c: &Core, token: &str, input: Services) -> Result<()>
     endpoint(&input.geometry)?;
     endpoint(&input.ign)?;
     let mut tx = c.pool.begin().await?;
+    sqlx::query("DELETE FROM settings WHERE key='maps.overpass_pause'").execute(&mut *tx).await?;
     sqlx::query("INSERT INTO settings(key,value_json,modified_at,modified_by) VALUES('maps.services',?,?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,modified_at=excluded.modified_at,modified_by=excluded.modified_by").bind(serde_json::to_string(&input)?).bind(db::now()).bind(&actor).execute(&mut *tx).await?;
     crate::audit::append(
         &mut tx,
@@ -175,9 +176,9 @@ pub async fn save_settings(c: &Core, token: &str, input: Services) -> Result<()>
 pub(crate) fn client() -> Result<reqwest::Client> {
     Ok(reqwest::Client::builder()
         .user_agent(concat!(
-            "SecuriteERP/",
+            "LibreERP/",
             env!("CARGO_PKG_VERSION"),
-            " (Windows desktop; fr.securiteerp.desktop)"
+            " (https://github.com/LaurentN1305/libre-erp)"
         ))
         .timeout(std::time::Duration::from_secs(22))
         .redirect(reqwest::redirect::Policy::none())
@@ -326,63 +327,16 @@ pub async fn context(c: &Core, token: &str, lat: f64, lon: f64) -> Result<Plan> 
     point(lat, lon)?;
     throttle(c, "maps.last_context", 2500).await?;
     let b = bounds(lat, lon);
-    let query = format!("[out:json][timeout:5][maxsize:16777216];(way[highway]({},{},{},{});way[building]({},{},{},{}););out geom;",b[1],b[0],b[3],b[2],b[1],b[0],b[3],b[2]);
-    let mut services = settings(c).await?;
-    if services.geometry == "https://overpass.private.coffee/api/interpreter" {
-        services.geometry = "https://api.openstreetmap.org/api/0.6/map.json".into();
-    }
+    let services = settings(c).await?;
     endpoint(&services.geometry)?;
     endpoint(&services.ign)?;
-    let cooldown: Option<String> =
-        sqlx::query_scalar("SELECT value_json FROM settings WHERE key='maps.overpass_pause'")
-            .fetch_optional(&c.pool)
-            .await?;
-    let skip = services.ign_fallback
-        && cooldown
-            .and_then(|s| serde_json::from_str::<Value>(&s).ok())
-            .is_some_and(|v| {
-                v["endpoint"].as_str() == Some(&services.geometry)
-                    && v["until"].as_i64().unwrap_or(0) > chrono::Utc::now().timestamp()
-            });
-    let primary: Result<Plan> = if skip {
-        Err(anyhow::anyhow!(
-            "Service OpenStreetMap temporairement indisponible"
-        ))
-    } else {
-        async {
-            if services.geometry.ends_with("/api/0.6/map.json") {
-                return direct_plan(&services.geometry, b).await;
-            }
-            let response = client()?
-                .post(&services.geometry)
-                .timeout(std::time::Duration::from_secs(7))
-                .form(&[("data", query)])
-                .send()
-                .await
-                .map_err(|_| {
-                    anyhow::anyhow!(
-                        "Le service OpenStreetMap est injoignable ou ne répond pas à temps."
-                    )
-                })?;
-            let bytes = limited(response, 3 * 1024 * 1024).await?;
-            let plan = parse_plan(serde_json::from_slice(&bytes)?, b)?;
-            if plan.features.is_empty() {
-                bail!("Aucun objet OpenStreetMap dans cette zone")
-            };
-            Ok(plan)
-        }
-        .await
-    };
+    // A user-requested refresh always attempts OSM: no hidden five-minute bypass.
+    let primary = geometry_plan(&services.geometry, b).await;
     let plan = match primary {
         Ok(plan) => plan,
         Err(error) => {
-            if !services.ign_fallback {
-                return Err(error);
-            }
-            if !skip {
-                sqlx::query("INSERT INTO settings(key,value_json,modified_at) VALUES('maps.overpass_pause',?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,modified_at=excluded.modified_at").bind(json!({"endpoint":services.geometry,"until":chrono::Utc::now().timestamp()+300}).to_string()).bind(db::now()).execute(&c.pool).await?;
-            }
-            crate::maps_ign::fetch(&services.ign,b).await.map_err(|_|anyhow::anyhow!("Les services de plan OpenStreetMap et IGN sont indisponibles. Vérifiez la connexion ou réessayez plus tard ; les coordonnées et le plan précédent sont conservés."))?
+            if !services.ign_fallback { return Err(error); }
+            crate::maps_ign::fetch(&services.ign,b).await.map_err(|_|anyhow::anyhow!("OpenStreetMap : {}. Le secours IGN est également indisponible. Les coordonnées et le plan précédent sont conservés.", error))?
         }
     };
     validate(&Some(Location {
@@ -597,4 +551,42 @@ mod direct_tests {
         assert_eq!(p.source, "osm");
         println!("OSM direct natif : {} objets", p.features.len());
     }
+}
+
+fn legacy_geometry(url: &str) -> bool {
+    matches!(url, "https://overpass.private.coffee/api/interpreter" | "https://api.openstreetmap.org/api/0.6/map.json")
+}
+async fn geometry_plan(url: &str, b: [f64;4]) -> Result<Plan> {
+    endpoint(url)?;
+    if url.ends_with("/api/0.6/map.json") { return direct_plan(url,b).await; }
+    let query=format!("[out:json][timeout:8][maxsize:16777216];(way[highway]({},{},{},{});way[building]({},{},{},{}););out geom;", b[1],b[0],b[3],b[2],b[1],b[0],b[3],b[2]);
+    // GET also works behind networks which disallow form POSTs to map services.
+    let response=client()?.get(url).query(&[("data",query)]).timeout(std::time::Duration::from_secs(14)).send().await
+        .map_err(|e|anyhow::anyhow!("{}", if e.is_timeout(){"Délai de réponse OpenStreetMap dépassé (14 s)"}else if e.is_connect(){"Connexion au service OpenStreetMap impossible"}else{"Réponse OpenStreetMap indisponible"}))?;
+    let bytes=limited(response,3*1024*1024).await?;
+    let plan=parse_plan(serde_json::from_slice(&bytes).context("Réponse JSON OpenStreetMap invalide")?,b)?;
+    if plan.features.is_empty(){bail!("Aucun objet OpenStreetMap dans cette zone")}
+    Ok(plan)
+}
+#[derive(Serialize)]
+pub struct Diagnostic { service:String, ok:bool, detail:String }
+pub async fn diagnostics(c:&Core,token:&str)->Result<Vec<Diagnostic>> {
+    auth::require(c,token,Some("users.manage")).await?;
+    throttle(c,"maps.last_diagnostic",30_000).await?;
+    let service=settings(c).await?;
+    let b=bounds(48.8566,2.3522);
+    let mut result=vec![];
+    let query=client()?.get(&service.geocoder).query(&[("q","Hotel de Ville Paris France"),("format","jsonv2"),("limit","1")]).timeout(std::time::Duration::from_secs(10)).send().await;
+    let geo:Result<usize>=async{let bytes=limited(query.context("Connexion au géocodage impossible ou délai dépassé")?,256*1024).await?;Ok(candidates(serde_json::from_slice(&bytes)?)?.len())}.await;
+    result.push(match geo {Ok(n)=>Diagnostic{service:"Recherche d’adresse OpenStreetMap".into(),ok:n>0,detail:format!("{} résultat(s) pour l’exemple public Hôtel de Ville de Paris",n)},Err(e)=>Diagnostic{service:"Recherche d’adresse OpenStreetMap".into(),ok:false,detail:e.to_string()}});
+    for (name,test) in [("Plan OpenStreetMap",geometry_plan(&service.geometry,b).await),("Plan IGN",crate::maps_ign::fetch(&service.ign,b).await)]{
+        result.push(match test {Ok(p)=>Diagnostic{service:name.into(),ok:true,detail:format!("{} objets reçus et interprétés",p.features.len())},Err(e)=>Diagnostic{service:name.into(),ok:false,detail:e.to_string()}});
+    }
+    Ok(result)
+}
+#[cfg(test)]
+mod service_tests {
+ use super::*;
+ #[test] fn replaces_only_obsolete_public_endpoints(){assert!(legacy_geometry("https://api.openstreetmap.org/api/0.6/map.json"));assert!(legacy_geometry("https://overpass.private.coffee/api/interpreter"));assert!(!legacy_geometry("https://mon-service.fr/api/interpreter"));}
+ #[tokio::test] #[ignore="Recette réseau OSM volontaire"] async fn live_readonly_osm(){let p=geometry_plan(&Services::default().geometry,bounds(48.8566,2.3522)).await.unwrap();assert_eq!(p.source,"osm");assert!(!p.features.is_empty());}
 }
