@@ -1,6 +1,7 @@
 {
   "bundle": {
     "resources": {
+      "../LICENSE": "LICENSE",
       "resources/securite-erp-recovery.exe": "recovery/securite-erp-recovery.exe",
       "resources/Retour-Version.ps1": "recovery/Retour-Version.ps1"
     },

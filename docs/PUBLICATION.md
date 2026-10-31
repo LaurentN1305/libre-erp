@@ -51,3 +51,13 @@ Le fichier obtenu est chiffré et relu immédiatement pour vérifier sa cohéren
 Sur un autre PC ou compte Windows, `Restaurer-Cles-Signature.cmd` permet de choisir ce fichier et de saisir la phrase. La restauration recrée un coffre Windows à partir des mêmes clés ; elle refuse de remplacer un coffre existant. Les logiciels déjà distribués continuent ainsi de reconnaître les signatures.
 
 Le test automatique du format de sauvegarde vérifie la relecture, le rejet d’une mauvaise phrase et le rejet d’une modification du contenu. Aucune sauvegarde des clés de production n’a été créée automatiquement : sa phrase doit être choisie et conservée par l’éditeur.
+
+## Version 0.11.0 : première installation configurée
+
+La version 0.11.0 intègre les clés publiques du coffre éditeur lors du build de production. Les installeurs sont signés pour les mises à jour Tauri, sans certificat Authenticode Windows. Les données restent dans le même dossier, avec le même identifiant et le même code de mise à niveau MSI.
+
+La recherche s’exécute au démarrage puis toutes les six heures tant que l’application reste ouverte. Le paquet est téléchargé en arrière-plan et ses signatures sont vérifiées avant une notification Windows. Un bandeau dans l’application ouvre les nouveautés et l’installation. L’utilisateur choisit une phrase pour la sauvegarde préalable, puis lance l’installation. La fermeture volontaire de Libre ERP sans accepter la mise à jour ne l’installe pas.
+
+Les nouveautés sont un texte signé, affiché sans interprétation HTML. Pour préparer une publication, modifier le fichier `publication/NOUVEAUTES-0.11.0.txt` ou passer `-Nouveautes CHEMIN` au script de préparation. Les fichiers de canal doivent être renouvelés avant leur expiration (180 jours par défaut), même si la version reste identique ; augmenter alors la séquence. Les preuves de retour manuel restent valables après expiration.
+
+Validation locale de cette évolution : compilation TypeScript/Vite, 12 tests Node, 34 tests Rust réussis (2 tests réseau facultatifs ignorés), et recette d’interface avec notification interne et nouveautés. Une installation réelle suivie d’une mise à jour réelle nécessite encore une recette Windows séparée ; les bases de l’utilisateur ne sont pas ouvertes par ces tests.

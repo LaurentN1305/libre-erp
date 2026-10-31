@@ -25,7 +25,7 @@ with zipfile.ZipFile(archive, 'w', compression=zipfile.ZIP_DEFLATED, compresslev
             path = Path(folder) / filename
             if path.is_symlink():
                 continue
-            if filename.startswith('.env') or path.suffix.lower() in {'.pem', '.pfx', '.p12', '.key', '.exe', '.msi', '.log', '.zip'}:
+            if filename.startswith('.env') or path.suffix.lower() in {'.pem', '.pfx', '.p12', '.key', '.erp-cles', '.dpapi', '.exe', '.msi', '.log', '.zip'}:
                 continue
             if filename == 'tauri.release.json':
                 continue

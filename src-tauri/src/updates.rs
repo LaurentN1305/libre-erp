@@ -16,6 +16,7 @@ pub struct Status {
     channel: String,
     phase: String,
     candidate: Option<String>,
+    notes: Option<String>,
     last_check: Option<String>,
     message: String,
     manifest_verified: bool,
@@ -70,8 +71,12 @@ mod signature_tests {
 pub async fn status(core: &Core) -> Result<Status> {
     let r=sqlx::query("SELECT channel,phase,candidate_version,last_checked_at,last_error,manifest_verified_at,artifact_verified_at FROM update_state WHERE singleton=1").fetch_one(&core.pool).await?;
     let error: Option<String> = r.get(4);
+    let saved: Option<String> = sqlx::query_scalar("SELECT signed_manifest_json FROM update_state WHERE singleton=1").fetch_one(&core.pool).await?;
+    let notes = saved.and_then(|s| validate_envelope(s.as_bytes(), &r.get::<String,_>(0)).ok())
+        .and_then(|(_, release)| release["notes"].as_str().map(str::to_owned));
     Ok(Status {
         configured: configured(),
+        notes,
         channel: r.get(0),
         phase: if crate::portable::active() {
             "idle".into()
@@ -233,6 +238,16 @@ async fn check_inner(core: &Core, app: &tauri::AppHandle) -> Result<()> {
         db::atomic_write(&core.root.join("updates/envelope.json"), &bytes)?;
         sqlx::query("UPDATE update_state SET phase='ready',artifact_verified_at=?,downloaded_path=?,signed_manifest_json=? WHERE singleton=1")
             .bind(db::now()).bind(path.to_string_lossy().as_ref()).bind(String::from_utf8(bytes)?).execute(&core.pool).await?;
+        let notified: Option<String> = sqlx::query_scalar("SELECT value_json FROM settings WHERE key='updates.notified'").fetch_optional(&core.pool).await?;
+        let marker = serde_json::json!(format!("{channel}:{}", update.version)).to_string();
+        if notified.as_deref() != Some(&marker) {
+            use tauri_plugin_notification::NotificationExt;
+            if app.notification().builder().title("Libre ERP · Mise à jour disponible")
+                .body(format!("La version {} est prête. Ouvrez Libre ERP pour consulter les nouveautés et l’installer.", update.version)).show().is_ok() {
+                sqlx::query("INSERT INTO settings(key,value_json,modified_at) VALUES('updates.notified',?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,modified_at=excluded.modified_at")
+                    .bind(marker).bind(db::now()).execute(&core.pool).await?;
+            }
+        }
     } else {
         sqlx::query("UPDATE update_state SET phase='idle',candidate_version=NULL,manifest_verified_at=?,artifact_verified_at=NULL,last_error=NULL WHERE singleton=1").bind(db::now()).execute(&core.pool).await?;
     }

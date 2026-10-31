@@ -1,0 +1,9 @@
+Libre ERP 0.11.0 — Mises à jour signées
+
+• Recherche automatique des nouvelles versions pendant l’utilisation, avec une connexion Internet.
+• Notification lorsqu’une mise à jour est prête.
+• Présentation des nouveautés avant installation.
+• Vérification cryptographique des fichiers téléchargés.
+• Sauvegarde des données avant installation.
+
+Le fonctionnement quotidien reste disponible hors ligne. Cette première version doit être installée manuellement.
