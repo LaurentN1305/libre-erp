@@ -2,7 +2,15 @@
 
 Libre ERP est une application Windows hors ligne dédiée au suivi des bâtiments ERP (établissements recevant du public). Elle centralise la maintenance, les contrats d’entretien, les interventions, les équipements et le registre de sécurité, ainsi que les documents, les échéances et l’historique de chaque bâtiment.
 
-**État : version d’essai 0.10.0, schéma SQLite 13.** Le logiciel fonctionne hors ligne pour ses données métier. La recherche cartographique et la vérification de mises à jour sont des actions réseau facultatives.
+**État : version 0.11.0, schéma SQLite 13.** Le logiciel fonctionne hors ligne pour ses données métier. La recherche cartographique et la vérification de mises à jour sont des actions réseau facultatives.
+
+## Télécharger Libre ERP pour Windows
+
+**[Télécharger la dernière version Windows](https://github.com/LaurentN1305/libre-erp/releases/latest)**
+
+Choisir le fichier `LibreERP_VERSION_x64-setup.exe`, le lancer et suivre l’installation. Le MSI est disponible pour les déploiements administrés. Les archives « Source code » contiennent les sources, pas le logiciel à installer.
+
+La première version avec mises à jour signées est **0.11.0**. Une installation manuelle est nécessaire pour les utilisateurs des versions précédentes. Les versions suivantes pourront être proposées dans l’application, avec leurs nouveautés et une sauvegarde préalable.
 
 ## Fonctions disponibles
 - Tableau de bord et fiches multi-bâtiments, plusieurs types ERP par bâtiment.
@@ -44,7 +52,7 @@ Les recettes d’interface sous `tests/ui-*.mjs` utilisent actuellement un envir
 ## Données et mises à jour
 La version installée conserve ses données dans `%LOCALAPPDATA%\fr.securiteerp.desktop`. Le mode portable conserve son dossier `Donnees` à côté du lanceur. Utiliser les fonctions de sauvegarde, restauration et partage, plutôt que copier uniquement le fichier de base.
 
-La signature payante Authenticode Windows n’est pas requise pour ce projet. Les mises à jour automatiques nécessitent leurs propres signatures cryptographiques : aucune mise à jour publique n’est activée actuellement. Voir le [plan de publication](docs/PUBLICATION.md).
+La signature payante Authenticode Windows n’est pas requise pour ce projet. Les mises à jour automatiques nécessitent leurs propres signatures cryptographiques : le canal stable est actif depuis la version 0.11.0. Voir le [plan de publication](docs/PUBLICATION.md).
 
 ## Licence
 Copyright 2026 LaurentN1305 et les contributeurs. Le code propre au projet est distribué sous **GNU GPL version 3 uniquement**, voir [LICENSE](LICENSE). Les dépendances et éléments tiers conservent leurs licences et notices respectives. Les fichiers dérivés de `openssl-sys` conservent notamment leurs mentions originales.

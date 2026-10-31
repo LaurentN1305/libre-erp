@@ -7,7 +7,7 @@ Publication des sources de la version d’essai 0.10.0 et de la liste des correc
 
 Les dossiers de livraisons, archives, caches et outils locaux sont exclus. Les fichiers d’exemple des tests ne contiennent pas de données opérationnelles d’une commune. Aucun export PDF utilisateur n’est publié.
 
-## Étapes avant la première mise à jour publique
+## Plan initial de préparation (historique)
 1. Corriger le parcours de publication qui impose encore un certificat Authenticode, et adapter la récupération d’une ancienne version pour vérifier une preuve cryptographique sans certificat Windows.
 2. Préparer une clé de signature Tauri et une clé Ed25519 du manifeste, conserver les clés privées hors du dépôt et prévoir une sauvegarde éditeur. N’afficher ni clés privées ni mots de passe dans un chat ou un journal.
 3. Choisir et configurer le stockage des secrets de publication. Les clés publiques seront intégrées au logiciel ; les clés privées resteront réservées à la fabrication des versions.
@@ -16,7 +16,7 @@ Les dossiers de livraisons, archives, caches et outils locaux sont exclus. Les f
 6. Tester le cycle complet sur une installation de test : téléchargement, vérification, sauvegarde avant migration, installation et reprise avec sauvegarde compatible. Ne pas tester sur les données réelles de la commune.
 7. Publier une version optimisée et les premiers manifestes signés après la recette.
 
-Le dépôt public et les contrôles automatiques ne signifient pas que les mises à jour sont actives dans les versions installées. Les livraisons actuelles restent des essais non signés Authenticode ; aucune clé de production n’a été créée ou déposée pendant cette préparation.
+Ce plan décrit l’état initial de la version 0.10.0. Depuis, les clés de production ont été créées et la version 0.11.0 a été publiée ; consulter l’état de publication en fin de document. Les anciennes versions doivent être remplacées manuellement par cette première version configurée.
 
 ## Références techniques
 - [Updater Tauri 2](https://v2.tauri.app/plugin/updater/)
@@ -61,3 +61,11 @@ La recherche s’exécute au démarrage puis toutes les six heures tant que l’
 Les nouveautés sont un texte signé, affiché sans interprétation HTML. Pour préparer une publication, modifier le fichier `publication/NOUVEAUTES-0.11.0.txt` ou passer `-Nouveautes CHEMIN` au script de préparation. Les fichiers de canal doivent être renouvelés avant leur expiration (180 jours par défaut), même si la version reste identique ; augmenter alors la séquence. Les preuves de retour manuel restent valables après expiration.
 
 Validation locale de cette évolution : compilation TypeScript/Vite, 12 tests Node, 34 tests Rust réussis (2 tests réseau facultatifs ignorés), et recette d’interface avec notification interne et nouveautés. Une installation réelle suivie d’une mise à jour réelle nécessite encore une recette Windows séparée ; les bases de l’utilisateur ne sont pas ouvertes par ces tests.
+
+## Publication effective du 31 octobre 2026
+
+La [version 0.11.0](https://github.com/LaurentN1305/libre-erp/releases/tag/v0.11.0) est publique : EXE, MSI, signatures Tauri et preuves signées Ed25519. Le tag correspond au commit `1c849938d3333c08eb83223d3b4ed58a70e9e99d`. Le [canal stable](https://github.com/LaurentN1305/libre-erp/releases/tag/stable), séquence 1, est actif ; la page `releases/latest` reste dirigée vers le logiciel 0.11.0. Le canal bêta n’est pas encore alimenté.
+
+Contrôles de livraison : compilation release réussie ; signatures Tauri des deux fichiers vérifiées avec les clés publiques, version liée 0.11.0 et rejet d’un digest modifié ; preuves des deux installeurs acceptées par le vérificateur natif ; version MSI 0.11.0, nom Libre ERP et UpgradeCode conservé ; empreintes SHA-256 calculées par GitHub identiques aux fichiers locaux ; manifestes publics téléchargés puis signatures Ed25519 et nouveautés vérifiées. Les clés privées restent dans le coffre local.
+
+Aucune installation réelle n’a été lancée sur les données utilisateur. Le passage d’une version installée à une version suivante reste à tester sur Windows ; la recette d’interface utilise des données fictives. Une version égale à la version installée ne doit pas afficher de notification de nouvelle version. Conserver une sauvegarde transportable des clés éditeur sur un support séparé.
