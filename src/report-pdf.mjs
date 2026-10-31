@@ -13,7 +13,7 @@ export async function createReportPdf(table,fontBytes,logo){
  if(table.rows.length)d.table(selected.map(i=>works&&table.columns[i].key==='target_due_on'?'Échéance / prévision':table.columns[i].label),table.rows.map(r=>selected.map(i=>summary(r,i))),weights,{size:8.5});else d.paragraph('Aucune ligne dans ce périmètre.');
  if(remaining.length&&table.rows.length){d.fresh('Informations complémentaires');d.heading(works?'Descriptions et observations':'Informations complémentaires',19);d.paragraph('Les références ci-dessous permettent de retrouver chaque élément dans le tableau récapitulatif.',{size:9});
   const ref=table.columns.findIndex(c=>c.key==='reference');
-  d.table(['Référence',...remaining.map(i=>table.columns[i].label)],table.rows.map((r,n)=>[ref>=0?r[ref]:String(n+1),...remaining.map(i=>formatted(r[i],table.columns[i]))]),[1,...remaining.map(()=>4)],{size:10});
+  for(let start=0;start<remaining.length;start+=3){const group=remaining.slice(start,start+3);d.table(['Référence',...group.map(i=>table.columns[i].label)],table.rows.map((r,n)=>[ref>=0?r[ref]:String(n+1),...group.map(i=>formatted(r[i],table.columns[i]))]),[1.3,...group.map(()=>works?4:2)],{size:10});}
  }
 
  return d.finish();
