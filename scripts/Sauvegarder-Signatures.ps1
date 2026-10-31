@@ -1,6 +1,11 @@
 param([string]$Destination,[string]$DossierCles=(Join-Path $env:LOCALAPPDATA 'LibreERP-Editeur'))
 . (Join-Path $PSScriptRoot 'Commun.ps1')
 Add-Type -AssemblyName System.Windows.Forms
+. (Join-Path $PSScriptRoot 'Resoudre-Coffre-Signature.ps1')
+$taskExistingVault=Resolve-LibreErpSigningVault -Dossier $DossierCles
+if(-not $taskExistingVault){throw 'Aucun coffre de signature retrouve. Ne regenerez pas les cles du logiciel deja publie. Utilisez Restaurer-Cles-Signature.cmd avec une sauvegarde .erp-cles.'}
+$DossierCles=$taskExistingVault
+Write-Host 'Coffre de signature existant retrouve. Cette operation sauvegarde les cles deja utilisees par Libre ERP.' -ForegroundColor Cyan
 if(-not $Destination){$taskDialog=New-Object System.Windows.Forms.SaveFileDialog;$taskDialog.Title='Sauvegarder les cles de signature Libre ERP';$taskDialog.Filter='Coffre de signature (*.erp-cles)|*.erp-cles';$taskDialog.FileName='LibreERP-cles-signature.erp-cles';if($taskDialog.ShowDialog() -ne [Windows.Forms.DialogResult]::OK){return};$Destination=$taskDialog.FileName}
 if(Test-Path -LiteralPath $Destination){throw 'Choisissez un nouveau fichier, sans remplacer une sauvegarde existante.'}
 $taskFirst=Read-Host 'Phrase pour proteger cette sauvegarde (12 caracteres minimum)' -AsSecureString

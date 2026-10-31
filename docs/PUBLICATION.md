@@ -77,3 +77,13 @@ Version publique : [v0.11.1](https://github.com/LaurentN1305/libre-erp/releases/
 Pour remplacer des manifestes sans suppression, téléverser les nouveaux sous des noms de séquence, archiver les noms standards de l’ancienne séquence dans une première sauvegarde de la Release, puis attribuer les noms standards aux nouveaux fichiers dans une seconde sauvegarde. Une permutation de noms en une seule sauvegarde est refusée par GitHub. Vérifier ensuite les URL standard sans paramètre de cache ; la propagation peut demander quelques instants.
 
 La version installée du poste a été lue sans ouvrir ses données : 0.11.0. La recette réelle doit désormais vérifier notification, nouveautés, sauvegarde, fermeture, installation, réouverture en 0.11.1 et conservation des données. Aucun résultat de cette recette utilisateur n’est encore annoncé.
+
+## Coffre rangé dans les données Windows de Codex
+
+Windows peut rediriger les écritures AppData d’un processus lancé depuis Codex vers `%LOCALAPPDATA%\Packages\OpenAI.Codex_*\LocalCache\Local\LibreERP-Editeur`. Un lanceur ouvert hors de Codex ne retrouve alors pas nécessairement le chemin standard. `Resoudre-Coffre-Signature.ps1` retrouve ce coffre existant lorsque le dossier standard est absent. Il ne déplace pas les fichiers et ne crée aucune clé. Un dossier personnalisé inexistant ne déclenche pas cette recherche, et plusieurs coffres candidats provoquent un arrêt explicite.
+
+Le chargement vérifie que les clés publiques du coffre correspondent à `publication/cles-publiques.json`. La sauvegarde vérifie la présence du coffre avant de demander un emplacement ou une phrase. L’initialisation et la restauration refusent de créer un coffre concurrent lorsqu’un coffre existant a été retrouvé.
+
+Après le correctif, relancer `Sauvegarder-Cles-Signature.cmd` pour choisir un nouveau fichier `.erp-cles` et sa phrase locale. Il s’agit de sauvegarder les clés déjà utilisées, pas d’en générer de nouvelles. Ne jamais saisir cette phrase dans un chat ni publier l’archive.
+
+Validation : recette de localisation sur des fichiers factices (absence, coffre MSIX, dossier personnalisé, priorité du dossier standard), et chargement réel du coffre existant sous Windows PowerShell 5.1 avec correspondance des clés publiques. Aucune clé privée n’est affichée ou publiée. La sauvegarde de production doit encore être effectuée par l’éditeur avec sa phrase choisie localement.

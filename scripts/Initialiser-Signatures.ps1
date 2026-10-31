@@ -1,6 +1,9 @@
 param([string]$Dossier=(Join-Path $env:LOCALAPPDATA 'LibreERP-Editeur'))
 . (Join-Path $PSScriptRoot 'Commun.ps1')
 Add-Type -AssemblyName System.Security
+. (Join-Path $PSScriptRoot 'Resoudre-Coffre-Signature.ps1')
+$taskExistingVault=Resolve-LibreErpSigningVault -Dossier $Dossier
+if($taskExistingVault){throw 'Un coffre existe deja, y compris dans les donnees de Codex. Utilisez Sauvegarder-Cles-Signature.cmd : aucune cle ne sera remplacee.'}
 $taskVault=[IO.Path]::GetFullPath($Dossier)
 if($taskVault.StartsWith($taskRoot+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)){throw 'Le coffre doit rester hors du projet.'}
 $taskVaultFile=Join-Path $taskVault 'signatures.dpapi'
