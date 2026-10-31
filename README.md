@@ -12,6 +12,15 @@ Choisir le fichier `LibreERP_VERSION_x64-setup.exe`, le lancer et suivre l’ins
 
 La première version avec mises à jour signées est **0.11.0**. Une installation manuelle est nécessaire pour les utilisateurs des versions précédentes. Les versions suivantes pourront être proposées dans l’application, avec leurs nouveautés et une sauvegarde préalable.
 
+## Mode d’emploi
+
+Un guide simple accompagne l’installation et l’utilisation : première connexion, bâtiments, interventions, registre, équipements, contrats, documents, sauvegardes et mises à jour.
+
+- **[Lire ou télécharger le mode d’emploi PDF](docs/LibreERP-Mode-emploi.pdf)**
+- [Lire le guide directement sur GitHub](docs/MODE-EMPLOI.md)
+
+Le guide correspond à la version 0.11.1 et utilise uniquement une illustration fictive.
+
 ## Fonctions disponibles
 - Tableau de bord et fiches multi-bâtiments, plusieurs types ERP par bâtiment.
 - Registre de sécurité en neuf rubriques, historique et export PDF.
