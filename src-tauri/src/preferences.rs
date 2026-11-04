@@ -31,6 +31,7 @@ impl Default for Features {
     }
 }
 pub async fn global(c: &Core, u: &str, p: &str) -> Result<bool> {
+    if !c.sharing.can_write() && (p.ends_with(".write") || p=="work.validate") {return Ok(false);}
     Ok(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM role_grants g JOIN role_permissions p ON p.role_code=g.role_code WHERE g.user_id=? AND g.building_id IS NULL AND g.role_code<>'prestataire' AND p.permission_code=? AND (g.expires_at IS NULL OR g.expires_at>?)").bind(u).bind(p).bind(db::now()).fetch_one(&c.pool).await?>0)
 }
 pub async fn org(c: &Core, u: &str) -> Result<String> {
@@ -73,6 +74,7 @@ pub async fn get(c: &Core, t: &str) -> Result<Value> {
     Ok(json!({"features":f,"logo":image,"can_manage":global(c,&u,"users.manage").await?}))
 }
 pub async fn save(c: &Core, t: &str, f: Features) -> Result<()> {
+    crate::shared_workspace::require_write(c)?;
     let u = auth::require(c, t, None).await?;
     if !global(c, &u, "users.manage").await? {
         bail!("Gestion des fonctionnalités réservée à l’exploitant global.")
@@ -85,6 +87,7 @@ pub async fn save(c: &Core, t: &str, f: Features) -> Result<()> {
     audit::checkpoint(&c.pool, &c.root).await
 }
 pub async fn logo(c: &Core, t: &str, path: Option<&std::path::Path>) -> Result<()> {
+    crate::shared_workspace::require_write(c)?;
     let u = auth::require(c, t, None).await?;
     if !global(c, &u, "users.manage").await? {
         bail!("Modification du logo non autorisée.")

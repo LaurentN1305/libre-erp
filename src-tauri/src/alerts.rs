@@ -211,6 +211,7 @@ async fn document_visible(c: &Core, u: &str, id: &str) -> Result<bool> {
     Ok(true)
 }
 pub async fn evaluate(c: &Core) -> Result<usize> {
+    if !c.sharing.can_write() { return Ok(0); }
     let n = evaluate_at(c, Utc::now()).await?;
     sqlx::query("INSERT INTO settings(key,value_json,modified_at) VALUES('alerts.last_checked',?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,modified_at=excluded.modified_at").bind(json!(db::now()).to_string()).bind(db::now()).execute(&c.pool).await?;
     sqlx::query("DELETE FROM settings WHERE key='alerts.last_error'")
@@ -433,6 +434,7 @@ async fn enqueue(c: &Core) -> Result<()> {
     Ok(())
 }
 pub async fn rule_save(c: &Core, t: &str, v: Value) -> Result<String> {
+    crate::shared_workspace::require_write(c)?;
     let u = auth::require(c, t, None).await?;
     let org = preferences::org(c, &u).await?;
     let why = reason(&v)?;
@@ -523,6 +525,7 @@ pub async fn rule_save(c: &Core, t: &str, v: Value) -> Result<String> {
     Ok(id)
 }
 pub async fn manual_save(c: &Core, t: &str, v: Value) -> Result<String> {
+    crate::shared_workspace::require_write(c)?;
     let u = auth::require(c, t, None).await?;
     let org = preferences::org(c, &u).await?;
     let b = txt(&v, "building_id");
@@ -600,6 +603,7 @@ pub async fn manual_save(c: &Core, t: &str, v: Value) -> Result<String> {
     Ok(id)
 }
 pub async fn manual_complete(c: &Core, t: &str, id: &str, why: &str) -> Result<()> {
+    crate::shared_workspace::require_write(c)?;
     let u = auth::require(c, t, None).await?;
     reason(&json!({"reason":why}))?;
     if !visible(c, &u, id, "alerts.manage").await? {
@@ -644,6 +648,7 @@ pub async fn manual_complete(c: &Core, t: &str, id: &str, why: &str) -> Result<(
     Ok(())
 }
 pub async fn acknowledge(c: &Core, t: &str, id: &str, why: &str) -> Result<()> {
+    crate::shared_workspace::require_write(c)?;
     let u = auth::require(c, t, None).await?;
     reason(&json!({"reason":why}))?;
     let d: String =
@@ -710,6 +715,7 @@ async fn snapshot_inner(c: &Core,t: &str,full:bool)->Result<Value>{
     )
 }
 pub async fn save_settings(c: &Core, t: &str, v: Settings) -> Result<()> {
+    crate::shared_workspace::require_write(c)?;
     let u = auth::require(c, t, None).await?;
     if !preferences::global(c, &u, "alerts.manage").await? {
         bail!("Réglage réservé à un responsable au périmètre global")
@@ -815,6 +821,7 @@ pub async fn notify(c: &Core, t: &str) -> Result<usize> {
     Ok(if ok { ids.len() } else { 0 })
 }
 pub async fn retry(c: &Core, t: &str) -> Result<()> {
+    crate::shared_workspace::require_write(c)?;
     let u = auth::require(c, t, None).await?;
     let rows=sqlx::query("SELECT n.id,a.deadline_id FROM notifications n JOIN alerts a ON a.id=n.alert_id WHERE n.user_id=? AND n.state='failed' AND a.resolved_at IS NULL AND a.acknowledged_at IS NULL").bind(&u).fetch_all(&c.pool).await?;
     let mut ids = vec![];

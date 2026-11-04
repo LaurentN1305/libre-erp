@@ -32,6 +32,7 @@ async fn p0_database_upgrade_preserves_data() {
     .await
     .unwrap();
     let mut old = Core {
+        sharing: Arc::new(shared_workspace::Gate::new(&root)),
         root: root.clone(),
         pool: pool.clone(),
         key: key.clone(),

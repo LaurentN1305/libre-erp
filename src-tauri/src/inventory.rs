@@ -418,6 +418,7 @@ pub(crate) async fn write_prepared(tx: &mut Tx<'_>, key: &[u8], p: Prepared) -> 
     Ok(id)
 }
 pub async fn save(c: &Core, token: &str, input: Input) -> Result<String> {
+    crate::shared_workspace::require_write(c)?;
     let p=prepare(c,token,input).await?;
     let mut tx=c.pool.begin().await?;
     let id=write_prepared(&mut tx,&c.key,p).await?;
@@ -434,6 +435,7 @@ pub async fn archive(
     archived: bool,
     why: &str,
 ) -> Result<()> {
+    crate::shared_workspace::require_write(c)?;
     let (u, b) = access(c, token, id, true).await?;
     reason(why)?;
     available(c, &b, None, 0).await?;
@@ -473,6 +475,7 @@ pub async fn location_add(
     kind: &str,
     name: &str,
 ) -> Result<String> {
+    crate::shared_workspace::require_write(c)?;
     let user = auth::require(c, token, None).await?;
     if !permit(c, &user, building, "inventory.write").await? {
         bail!("Emplacement non autorisé.")
@@ -524,6 +527,7 @@ pub async fn category_add(
     parent: Option<String>,
     name: &str,
 ) -> Result<String> {
+    crate::shared_workspace::require_write(c)?;
     let user = auth::require(c, token, Some("inventory.write")).await?;
     if name.trim().is_empty() || name.len() > 200 {
         bail!("Nom de catégorie invalide.")
@@ -569,6 +573,7 @@ pub async fn maintenance(
     work: Option<String>,
     why: &str,
 ) -> Result<()> {
+    crate::shared_workspace::require_write(c)?;
     let (u, b) = access(c, token, id, true).await?;
     reason(why)?;
     available(c, &b, Some(id), version).await?;
@@ -635,6 +640,7 @@ pub struct ReadingInput {
     pub reason: String,
 }
 pub async fn reading(c: &Core, token: &str, input: ReadingInput) -> Result<()> {
+    crate::shared_workspace::require_write(c)?;
     let (u, b) = access(c, token, &input.equipment_id, true).await?;
     available(c, &b, Some(&input.equipment_id), input.base_version).await?;
     reason(&input.reason)?;
@@ -704,6 +710,7 @@ pub async fn reading_cancel(
     reading: &str,
     why: &str,
 ) -> Result<()> {
+    crate::shared_workspace::require_write(c)?;
     let (u, b) = access(c, token, id, true).await?;
     available(c, &b, Some(id), version).await?;
     reason(why)?;
@@ -738,6 +745,7 @@ pub async fn photo_attach(
     version: i64,
     path: &std::path::Path,
 ) -> Result<()> {
+    crate::shared_workspace::require_write(c)?;
     let (u, b) = access(c, token, id, true).await?;
     available(c, &b, Some(id), version).await?;
     let n: i64 = sqlx::query_scalar(
@@ -795,6 +803,7 @@ pub async fn photo_remove(
     file: &str,
     why: &str,
 ) -> Result<()> {
+    crate::shared_workspace::require_write(c)?;
     let (u, b) = access(c, token, id, true).await?;
     available(c, &b, Some(id), version).await?;
     reason(why)?;

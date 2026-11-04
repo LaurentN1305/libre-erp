@@ -1,3 +1,6 @@
+mod shared_workspace;
+mod sftp_transport;
+use shared_workspace::{shared_status,shared_settings,shared_probe,shared_test,shared_connection_save,shared_configure,shared_open,shared_edit,shared_publish,shared_disable,shared_close,shared_reservation,shared_release_abandoned};
 mod reports;
 mod csv_import;
 mod alerts;
@@ -58,6 +61,7 @@ use zeroize::Zeroizing;
 #[derive(Clone)]
 pub struct Core {
     root: PathBuf,
+    sharing: Arc<shared_workspace::Gate>,
     pool: SqlitePool,
     key: Zeroizing<Vec<u8>>,
     dummy_hash: String,
@@ -302,6 +306,7 @@ async fn restore_prepare(
     response(
         async {
             let c = state.lock().await;
+            shared_workspace::require_local(&c)?;
             not_downloading(&c)?;
             let actor = auth::require(&c, &token, Some("backup.manage")).await?;
             let file = app
@@ -333,6 +338,7 @@ async fn restore_apply(
     response(
         async {
             let mut c = state.lock().await;
+            shared_workspace::require_local(&c)?;
             not_downloading(&c)?;
             let actor = auth::require(&c, &token, Some("backup.manage")).await?;
             // Sauvegarde chiffrée obligatoire de l'état actuel avant tout remplacement.
@@ -399,6 +405,7 @@ async fn update_install(
     response(
         async {
             let mut c = state.lock().await;
+            shared_workspace::require_released(&c)?;
             not_downloading(&c)?;
             let actor = auth::require(&c, &token, Some("updates.manage")).await?;
             updates::install(&mut c, &app, &actor, &p).await
@@ -1085,6 +1092,7 @@ async fn initialise(root: PathBuf) -> Result<Core> {
         std::fs::rename(pending, healthy)?;
     }
     Ok(Core {
+        sharing: Arc::new(shared_workspace::Gate::new(&root)),
         root,
         pool,
         key,
@@ -1112,6 +1120,7 @@ pub fn run() {
             let mut core=match tauri::async_runtime::block_on(initialise(root.clone())){Ok(c)=>c,Err(e)=>{
                 app.dialog().message(format!("Le démarrage sécurisé a été interrompu.\n\n{e}\n\nVos données sont conservées dans :\n{}",root.display())).title("Libre ERP — récupération").blocking_show();return Err(e.into());
             }};
+            app.manage(core.sharing.clone());
             core.app=Some(app.handle().clone());
             tauri::async_runtime::block_on(core.register_sql_pool());
             let backup_only=std::env::args().any(|a|a=="--backup-only");let alerts_only=std::env::args().any(|a|a=="--alerts-only");
@@ -1128,14 +1137,14 @@ pub fn run() {
                     let mut tick=0u64;
                     loop{
                         {let mut c=shared.lock().await;
-                            if !c.update_busy.load(Ordering::SeqCst){
+                            if c.sharing.can_write() && !c.update_busy.load(Ordering::SeqCst){
                                 if let Err(error)=alerts::evaluate(&c).await{let _=sqlx::query("INSERT INTO settings(key,value_json,modified_at) VALUES('alerts.last_error',?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,modified_at=excluded.modified_at").bind(serde_json::json!(error.to_string()).to_string()).bind(db::now()).execute(&c.pool).await;}
                                 match backup::scheduled(&mut c).await{
                                     Ok(Some(_))=>{use tauri_plugin_notification::NotificationExt;let _=handle.notification().builder().title("Libre ERP").body("La sauvegarde planifiée est terminée.").show();},
                                     Err(e)=>{let _=sqlx::query("INSERT INTO settings(key,value_json,modified_at) VALUES('backup.last_error',?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,modified_at=excluded.modified_at").bind(serde_json::json!(e.to_string()).to_string()).bind(db::now()).execute(&c.pool).await;},_=>{}
                                 }
                             }
-                            if !portable::active() && tick%360==0 && option_env!("ERP_UPDATE_BASE_URL").is_some() && !c.update_busy.swap(true,Ordering::SeqCst){dispatch_check(c.clone(),handle.clone());}
+                            if !portable::active() && (!c.sharing.enabled.load(Ordering::SeqCst) || tick>0) && (tick%360==0 || (tick==1 && c.sharing.enabled.load(Ordering::SeqCst))) && option_env!("ERP_UPDATE_BASE_URL").is_some() && !c.update_busy.swap(true,Ordering::SeqCst){dispatch_check(c.clone(),handle.clone());}
                         }
                         tick+=1;tokio::time::sleep(std::time::Duration::from_secs(60)).await;
                     }
@@ -1143,7 +1152,17 @@ pub fn run() {
             }
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![report_table,report_save,csv_import_options,csv_import_preview,csv_import_apply,csv_import_template,alerts_snapshot,alerts_poll,alert_acknowledge,alert_history,alert_rule_save,alert_manual_save,alert_manual_complete,alert_settings_save,alert_notification_test,alert_notification_retry,documents_snapshot,document_save,document_archive,document_history,document_file_save,documents_search,preferences_get,preferences_save,organisation_logo,contracts_snapshot,contract_save,contract_action,contract_history,contract_attach,contract_file_save,inventory_snapshot,inventory_detail,inventory_save,inventory_archive,inventory_location_add,inventory_category_add,inventory_maintenance,inventory_reading,inventory_reading_cancel,inventory_history,inventory_search,inventory_photo,inventory_photo_attach,inventory_photo_remove,inventory_labels_save,app_icon_refresh,map_open_licence,map_geocode,map_context,map_diagnostics,map_settings,map_settings_save,work_simple_transition,building_exchange_export,building_exchange_preview,building_exchange_import,works_snapshot,work_save,work_transition,work_history,works_search,work_cost,work_cost_reverse,work_file_active,work_attach,work_file_save,register_search,register_attachment_save,register_font,register_snapshot,register_save,register_history,register_archive,register_attachment,register_attach,register_export_pdf,user_scope,dashboard_snapshot,building_save,building_archive,building_photo,building_photo_set,app_status,bootstrap,login,logout,users,user_create,user_active,password_change,mfa_begin,mfa_confirm,audit_list,audit_verify,backup_settings,backup_schedule,backup_folder,backup_now,restore_prepare,restore_apply,update_status,update_channel,update_check,update_install]);
+        .on_window_event(|window,event|{
+            if let tauri::WindowEvent::CloseRequested{api,..}=event {
+                let gate=window.state::<Arc<shared_workspace::Gate>>();
+                if gate.enabled.load(Ordering::SeqCst) && !gate.closing.load(Ordering::SeqCst) {
+                    api.prevent_close();
+                    use tauri::Emitter;
+                    let _=window.emit("shared-close-requested",());
+                }
+            }
+        })
+        .invoke_handler(tauri::generate_handler![shared_status,shared_settings,shared_probe,shared_test,shared_connection_save,shared_configure,shared_open,shared_edit,shared_publish,shared_disable,shared_close,shared_reservation,shared_release_abandoned,report_table,report_save,csv_import_options,csv_import_preview,csv_import_apply,csv_import_template,alerts_snapshot,alerts_poll,alert_acknowledge,alert_history,alert_rule_save,alert_manual_save,alert_manual_complete,alert_settings_save,alert_notification_test,alert_notification_retry,documents_snapshot,document_save,document_archive,document_history,document_file_save,documents_search,preferences_get,preferences_save,organisation_logo,contracts_snapshot,contract_save,contract_action,contract_history,contract_attach,contract_file_save,inventory_snapshot,inventory_detail,inventory_save,inventory_archive,inventory_location_add,inventory_category_add,inventory_maintenance,inventory_reading,inventory_reading_cancel,inventory_history,inventory_search,inventory_photo,inventory_photo_attach,inventory_photo_remove,inventory_labels_save,app_icon_refresh,map_open_licence,map_geocode,map_context,map_diagnostics,map_settings,map_settings_save,work_simple_transition,building_exchange_export,building_exchange_preview,building_exchange_import,works_snapshot,work_save,work_transition,work_history,works_search,work_cost,work_cost_reverse,work_file_active,work_attach,work_file_save,register_search,register_attachment_save,register_font,register_snapshot,register_save,register_history,register_archive,register_attachment,register_attach,register_export_pdf,user_scope,dashboard_snapshot,building_save,building_archive,building_photo,building_photo_set,app_status,bootstrap,login,logout,users,user_create,user_active,password_change,mfa_begin,mfa_confirm,audit_list,audit_verify,backup_settings,backup_schedule,backup_folder,backup_now,restore_prepare,restore_apply,update_status,update_channel,update_check,update_install]);
     if let Err(e) = builder.run(tauri::generate_context!()) {
         eprintln!("Démarrage interrompu : {e}");
     }

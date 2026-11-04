@@ -319,6 +319,7 @@ pub async fn preview(c: &Core, t: &str, b: &str, content: &str) -> Result<Previe
     Ok(plan(c, t, b, content).await?.preview)
 }
 pub async fn apply(c: &Core, t: &str, b: &str, content: &str, seal: &str) -> Result<Value> {
+    crate::shared_workspace::require_write(c)?;
     let p = plan(c, t, b, content).await?;
     if p.preview.seal != seal {
         bail!("Les données ou l’aperçu ont changé. Relisez un nouvel aperçu avant d’importer.")

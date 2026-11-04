@@ -1,7 +1,7 @@
 # Socle P0 : pool SQLCipher privé, commandes métier authentifiées.
 [package]
 name = "securite-erp"
-version = "0.11.1"
+version = "0.12.0"
 edition = "2021"
 license = "GPL-3.0-only"
 default-run = "securite-erp"
@@ -50,6 +50,7 @@ url = "2"
 semver = "1"
 walkdir = "2"
 fs2 = "0.4"
+ssh2 = { version = "0.9.6", features = ["vendored-openssl", "openssl-on-win32"] }
 rpassword = "7"
 totp-rs = "5"
 zip = { version = "2", default-features = false, features = ["deflate"] }

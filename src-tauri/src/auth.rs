@@ -89,6 +89,7 @@ pub async fn bootstrap(
     login: &str,
     password: &str,
 ) -> Result<Session> {
+    crate::shared_workspace::require_write(core)?;
     if sqlx::query_scalar::<_, i64>("SELECT count(*) FROM users")
         .fetch_one(&core.pool)
         .await?
@@ -175,7 +176,7 @@ pub async fn login(core: &Core, login: &str, password: &str, otp: Option<&str>) 
             if next_step.is_none() {
                 let candidate = hex::encode(Sha256::digest(otp.unwrap_or("").as_bytes()));
                 let exists:i64=sqlx::query_scalar("SELECT count(*) FROM recovery_codes WHERE user_id=? AND code_hash=? AND used_at IS NULL").bind(&id).bind(&candidate).fetch_one(&core.pool).await?;
-                if exists == 1 {
+                if exists == 1 && !core.sharing.enabled.load(std::sync::atomic::Ordering::SeqCst) {
                     recovery_hash = Some(candidate);
                 } else {
                     valid = false;
@@ -225,6 +226,7 @@ pub async fn login(core: &Core, login: &str, password: &str, otp: Option<&str>) 
 }
 pub async fn logout(core: &Core, token: &str) -> Result<()> {
     let id = require(core, token, None).await?;
+    if core.sharing.enabled.load(std::sync::atomic::Ordering::SeqCst) {core.sharing.writable.store(false,std::sync::atomic::Ordering::SeqCst);}
     let mut tx = core.pool.begin().await?;
     sqlx::query("UPDATE sessions SET revoked_at=? WHERE token_hash=?")
         .bind(db::now())
@@ -276,6 +278,7 @@ pub async fn create_user(
     password: &str,
     role: &str,
 ) -> Result<()> {
+    crate::shared_workspace::require_write(core)?;
     let actor = require(core, token, Some("users.manage")).await?;
     validate_fields(name, login)?;
     crypto::validate_password(password)?;
@@ -318,6 +321,7 @@ pub async fn create_user(
     audit::checkpoint(&core.pool, &core.root).await
 }
 pub async fn set_active(core: &Core, token: &str, user_id: &str, active: bool) -> Result<()> {
+    crate::shared_workspace::require_write(core)?;
     let actor = require(core, token, Some("users.manage")).await?;
     if actor == user_id && !active {
         bail!("Vous ne pouvez pas désactiver votre propre compte.");
@@ -351,6 +355,7 @@ pub async fn set_active(core: &Core, token: &str, user_id: &str, active: bool) -
     audit::checkpoint(&core.pool, &core.root).await
 }
 pub async fn password_change(core: &Core, token: &str, current: &str, new: &str) -> Result<()> {
+    crate::shared_workspace::require_write(core)?;
     let id = require(core, token, None).await?;
     crypto::validate_password(new)?;
     let hash: String = sqlx::query_scalar("SELECT password_hash FROM users WHERE id=?")
@@ -385,6 +390,7 @@ pub async fn password_change(core: &Core, token: &str, current: &str, new: &str)
     audit::checkpoint(&core.pool, &core.root).await
 }
 pub async fn begin_mfa(core: &mut Core, token: &str, password: &str) -> Result<serde_json::Value> {
+    crate::shared_workspace::require_write(core)?;
     let uid = require(core, token, None).await?;
     let r = sqlx::query("SELECT password_hash,totp_secret_encrypted FROM users WHERE id=?")
         .bind(&uid)
@@ -410,6 +416,7 @@ pub async fn begin_mfa(core: &mut Core, token: &str, password: &str) -> Result<s
     )
 }
 pub async fn confirm_mfa(core: &mut Core, token: &str, code: &str) -> Result<Vec<String>> {
+    crate::shared_workspace::require_write(core)?;
     let uid = require(core, token, None).await?;
     let (secret, expires) = core
         .pending_mfa

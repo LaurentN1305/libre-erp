@@ -69,6 +69,7 @@ fn reason(s: &str) -> Result<()> {
     Ok(())
 }
 pub async fn permit(core: &Core, user: &str, building: &str, permission: &str) -> Result<bool> {
+    if !core.sharing.can_write() && (permission.ends_with(".write") || permission=="work.validate") {return Ok(false);}
     let n:i64=sqlx::query_scalar("SELECT count(*) FROM role_grants g JOIN role_permissions p ON p.role_code=g.role_code JOIN users u ON u.id=g.user_id JOIN buildings b ON b.organisation_id=u.organisation_id WHERE g.user_id=? AND b.id=? AND g.organisation_id=b.organisation_id AND g.role_code<>'prestataire' AND (g.building_id IS NULL OR g.building_id=b.id) AND p.permission_code=? AND (g.expires_at IS NULL OR g.expires_at>?)").bind(user).bind(building).bind(permission).bind(db::now()).fetch_one(&core.pool).await?;
     Ok(n > 0)
 }
@@ -348,6 +349,7 @@ pub async fn sync_legacy(pool: &SqlitePool, key: &[u8]) -> Result<()> {
     Ok(())
 }
 pub async fn save(core: &Core, token: &str, input: Input) -> Result<String> {
+    crate::shared_workspace::require_write(core)?;
     let actor = auth::require(core, token, None).await?;
     if !permit(core, &actor, &input.building_id, "work.write").await? {
         bail!("Votre rôle ne permet pas de gérer les travaux de ce bâtiment.");
@@ -643,6 +645,7 @@ pub async fn transition(
     to: &str,
     why: &str,
 ) -> Result<()> {
+    crate::shared_workspace::require_write(core)?;
     transition_impl(core, token, id, version, to, why, false).await
 }
 pub async fn simple_transition(
@@ -653,6 +656,7 @@ pub async fn simple_transition(
     done: bool,
     why: &str,
 ) -> Result<()> {
+    crate::shared_workspace::require_write(core)?;
     let (actor, building) = access(core, token, id, false).await?;
     let from: String = sqlx::query_scalar("SELECT status FROM works WHERE id=?")
         .bind(id)
@@ -787,6 +791,7 @@ pub async fn cost(
     file: Option<String>,
     why: &str,
 ) -> Result<()> {
+    crate::shared_workspace::require_write(core)?;
     let (actor, b) = access(core, token, id, true).await?;
     if !permit(core, &actor, &b, "work.budget.read").await? {
         bail!("Accès budgétaire refusé.");
@@ -824,6 +829,7 @@ pub async fn reverse_cost(
     cost_id: &str,
     why: &str,
 ) -> Result<()> {
+    crate::shared_workspace::require_write(core)?;
     let (actor, b) = access(core, token, id, true).await?;
     if !permit(core, &actor, &b, "work.budget.read").await? {
         bail!("Accès budgétaire refusé.");
@@ -931,6 +937,7 @@ pub async fn attach(
     purpose: &str,
     path: &std::path::Path,
 ) -> Result<()> {
+    crate::shared_workspace::require_write(core)?;
     let (actor, b) = access(core, token, id, true).await?;
     writable(core, id, false).await?;
     cas(core, id, version).await?;
@@ -1009,6 +1016,7 @@ pub async fn file_active(
     active: bool,
     why: &str,
 ) -> Result<()> {
+    crate::shared_workspace::require_write(core)?;
     let (actor, b) = access(core, token, id, true).await?;
     writable(core, id, false).await?;
     cas(core, id, version).await?;
@@ -1089,6 +1097,7 @@ pub async fn abandon(
     why: &str,
     restore: bool,
 ) -> Result<()> {
+    crate::shared_workspace::require_write(core)?;
     let (actor, b) = access(core, token, id, false).await?;
     if !permit(core, &actor, &b, "work.validate").await? {
         bail!("La décision doit être prise par un responsable habilité à valider.");

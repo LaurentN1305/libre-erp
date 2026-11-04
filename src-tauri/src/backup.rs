@@ -92,6 +92,7 @@ pub async fn save_schedule(
     time: &str,
     password: &str,
 ) -> Result<()> {
+    crate::shared_workspace::require_local(core)?;
     chrono::NaiveTime::parse_from_str(time, "%H:%M").context("Heure invalide (HH:MM)")?;
     let existing: Option<String> =
         sqlx::query_scalar("SELECT value_json FROM settings WHERE key='backup.schedule'")
@@ -138,6 +139,7 @@ pub async fn save_schedule(
     audit::checkpoint(&core.pool, &core.root).await
 }
 pub async fn set_destination(core: &Core, actor: &str, path: &Path) -> Result<()> {
+    crate::shared_workspace::require_local(core)?;
     let path = path.canonicalize()?;
     if path.starts_with(core.root.join("db")) || path.starts_with(core.root.join("files")) {
         bail!("Choisissez un dossier distinct des données actives.");
@@ -163,6 +165,7 @@ pub async fn set_destination(core: &Core, actor: &str, path: &Path) -> Result<()
     Ok(())
 }
 pub async fn scheduled(core: &mut Core) -> Result<Option<String>> {
+    if core.sharing.enabled.load(std::sync::atomic::Ordering::SeqCst) { return Ok(None); }
     let saved: Option<String> =
         sqlx::query_scalar("SELECT value_json FROM settings WHERE key='backup.schedule'")
             .fetch_optional(&core.pool)

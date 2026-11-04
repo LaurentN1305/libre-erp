@@ -198,6 +198,7 @@ async fn revision(
     .await
 }
 pub async fn save(c: &Core, t: &str, v: Value, path: Option<&std::path::Path>) -> Result<String> {
+    crate::shared_workspace::require_write(c)?;
     let u = auth::require(c, t, None).await?;
     let reason = why(&v)?;
     let b = s(&v, "building_id");
@@ -370,6 +371,7 @@ pub async fn archive(
     archived: bool,
     reason: &str,
 ) -> Result<()> {
+    crate::shared_workspace::require_write(c)?;
     let u = access(c, t, id, true).await?;
     why(&json!({"reason":reason}))?;
     let v = load(c, id).await?;

@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::Row;
 
 pub async fn set_scope(core: &Core, token: &str, user: &str, buildings: Vec<String>) -> Result<()> {
+    crate::shared_workspace::require_write(core)?;
     let actor = auth::require(core, token, Some("users.manage")).await?;
     if actor == user {
         bail!("Votre propre périmètre doit rester global.");
@@ -84,6 +85,7 @@ pub struct BuildingInput {
 }
 
 pub async fn allowed(core: &Core, user: &str, building: &str, permission: &str) -> Result<bool> {
+    if !core.sharing.can_write() && (permission.ends_with(".write") || permission=="work.validate") {return Ok(false);}
     let n:i64=sqlx::query_scalar("SELECT count(*) FROM role_grants g JOIN role_permissions p ON p.role_code=g.role_code JOIN users u ON u.id=g.user_id JOIN buildings b ON b.organisation_id=u.organisation_id WHERE g.user_id=? AND b.id=? AND g.organisation_id=u.organisation_id AND (g.building_id IS NULL OR g.building_id=b.id) AND p.permission_code=? AND (g.expires_at IS NULL OR g.expires_at>?)")
         .bind(user).bind(building).bind(permission).bind(db::now()).fetch_one(&core.pool).await?;
     Ok(n > 0)
@@ -199,6 +201,7 @@ pub async fn snapshot(core: &Core, token: &str) -> Result<serde_json::Value> {
     )
 }
 pub async fn save(core: &Core, token: &str, input: BuildingInput) -> Result<String> {
+    crate::shared_workspace::require_write(core)?;
     let actor = if let Some(id) = &input.id {
         check(core, token, id, "buildings.write").await?
     } else {
@@ -271,6 +274,7 @@ pub async fn save(core: &Core, token: &str, input: BuildingInput) -> Result<Stri
     Ok(id)
 }
 pub async fn archive(core: &Core, token: &str, id: &str, archived: bool) -> Result<()> {
+    crate::shared_workspace::require_write(core)?;
     let actor = check(core, token, id, "buildings.write").await?;
     let mut tx = core.pool.begin().await?;
     sqlx::query("UPDATE entities SET archived_at=? WHERE id=?")
@@ -317,6 +321,7 @@ pub async fn set_photo(
     id: &str,
     path: Option<std::path::PathBuf>,
 ) -> Result<()> {
+    crate::shared_workspace::require_write(core)?;
     let actor = check(core, token, id, "buildings.write").await?;
     let org: String = sqlx::query_scalar("SELECT organisation_id FROM buildings WHERE id=?")
         .bind(id)

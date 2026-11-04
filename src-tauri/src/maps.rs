@@ -155,6 +155,7 @@ pub async fn settings(c: &Core) -> Result<Services> {
     Ok(services)
 }
 pub async fn save_settings(c: &Core, token: &str, input: Services) -> Result<()> {
+    crate::shared_workspace::require_write(c)?;
     let actor = auth::require(c, token, Some("users.manage")).await?;
     endpoint(&input.geocoder)?;
     endpoint(&input.geometry)?;

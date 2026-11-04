@@ -1,0 +1,10 @@
+Partage SFTP facultatif (première version à tester)
+
+- Paramètres pour créer ou rejoindre un espace partagé.
+- Récupération de la base et des documents chiffrés à l’ouverture.
+- Une seule personne modifie les données ; les autres consultent.
+- Envoi vérifié et libération de la réservation depuis le bandeau ou à la fermeture.
+- Conservation du travail local en cas de coupure et des versions précédentes sur le serveur.
+- Vérification de l’empreinte SSH et identifiants protégés par Windows.
+
+Le mode local reste le fonctionnement par défaut. Le partage transfère des archives complètes, limitées à 2 Gio par version. Les essais avec votre hébergement et deux postes réels doivent être effectués avant utilisation en équipe.

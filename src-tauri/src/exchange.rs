@@ -561,6 +561,7 @@ pub async fn import(
     expected: Option<&str>,
     replace: bool,
 ) -> Result<String> {
+    crate::shared_workspace::require_write(c)?;
     let actor = access(c, token).await?;
     let p = read(path, password)?;
     let preview = preview_package(c, path, &p).await?;

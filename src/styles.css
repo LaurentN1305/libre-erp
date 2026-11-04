@@ -40,3 +40,5 @@ dialog.building-editor{margin:auto;border:1px solid #c5d6dc}dialog.building-edit
 .top-actions .alert-nav-button.alert-state-0:hover:not(:disabled){background:#edf6ef}.top-actions .alert-nav-button.alert-state-1:hover:not(:disabled){background:#eaf1f7}.top-actions .alert-nav-button.alert-state-2:hover:not(:disabled){background:#fff6dd}.top-actions .alert-nav-button.alert-state-3:hover:not(:disabled){background:#fff0d4}.top-actions .alert-nav-button.alert-state-4:hover:not(:disabled){background:#a51d32}
 
 .dashboard-heading{display:block;margin-bottom:18px}.dashboard-actions{margin:0 0 26px;gap:10px;align-items:stretch}.dashboard-actions button{margin:0;min-height:42px;flex:0 1 auto}@media(max-width:1100px){.dashboard-actions button{flex:1 1 185px}}
+
+.shared-actions{display:flex;gap:.65rem;flex-wrap:wrap;margin:.65rem 0}.shared-close{max-width:650px;width:calc(100% - 3rem);padding:1.5rem;border:1px solid #c5b3b6;border-radius:12px;color:#332027}.shared-close::backdrop{background:rgba(35,10,18,.55)}

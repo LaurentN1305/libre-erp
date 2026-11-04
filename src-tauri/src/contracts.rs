@@ -299,6 +299,7 @@ async fn deadlines(tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>, id: &str) -> Re
     Ok(())
 }
 pub async fn save(c: &Core, t: &str, provider: bool, v: Value) -> Result<String> {
+    crate::shared_workspace::require_write(c)?;
     let why = reason(&v)?;
     if text(&v, "notes").len() > 10000 {
         bail!("Compte rendu limité à 10 000 caractères.")
@@ -532,6 +533,7 @@ pub async fn action(
     op: &str,
     v: Value,
 ) -> Result<()> {
+    crate::shared_workspace::require_write(c)?;
     let why = reason(&v)?;
     if text(&v, "notes").len() > 10000 {
         bail!("Compte rendu limité à 10 000 caractères.")
@@ -685,6 +687,7 @@ pub async fn attach(
     target: Option<&str>,
     p: &std::path::Path,
 ) -> Result<()> {
+    crate::shared_workspace::require_write(c)?;
     let u = auth::require(c, t, None).await?;
     if provider {
         if !provider_access(c, &u, id, true).await? {

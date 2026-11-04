@@ -65,3 +65,7 @@ La signature payante Authenticode Windows n’est pas requise pour ce projet. Le
 
 ## Licence
 Copyright 2026 LaurentN1305 et les contributeurs. Le code propre au projet est distribué sous **GNU GPL version 3 uniquement**, voir [LICENSE](LICENSE). Les dépendances et éléments tiers conservent leurs licences et notices respectives. Les fichiers dérivés de `openssl-sys` conservent notamment leurs mentions originales.
+
+## Partage SFTP facultatif
+
+La version 0.12.0 ajoute un espace partagé avec un seul rédacteur à la fois et consultation sur les autres postes. Le mode local reste le défaut. Voir le [guide du partage SFTP](docs/PARTAGE-SFTP.md) pour la configuration, les limites et la recette sur deux postes.

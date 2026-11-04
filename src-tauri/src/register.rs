@@ -167,6 +167,7 @@ pub async fn snapshot(core: &Core, token: &str, building: &str) -> Result<Value>
     )
 }
 pub async fn save(core: &Core, token: &str, input: Input) -> Result<String> {
+    crate::shared_workspace::require_write(core)?;
     let actor = access(core, token, &input.building_id, true).await?;
     validate(&input)?;
     let org: String = sqlx::query_scalar("SELECT organisation_id FROM users WHERE id=?")
@@ -252,6 +253,7 @@ pub async fn attachment(core: &Core, token: &str, building: &str, file: &str) ->
     )
 }
 pub async fn attach(core: &Core, token: &str, id: &str, path: &std::path::Path) -> Result<()> {
+    crate::shared_workspace::require_write(core)?;
     let current = entry(core, id).await?;
     let building = current["building_id"].as_str().unwrap();
     let actor = access(core, token, building, true).await?;
@@ -307,6 +309,7 @@ pub async fn attach(core: &Core, token: &str, id: &str, path: &std::path::Path) 
     Ok(())
 }
 pub async fn archive(core: &Core, token: &str, id: &str, archived: bool) -> Result<()> {
+    crate::shared_workspace::require_write(core)?;
     let building: String =
         sqlx::query_scalar("SELECT building_id FROM register_entries WHERE id=?")
             .bind(id)
