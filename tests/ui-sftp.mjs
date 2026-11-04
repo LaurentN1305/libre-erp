@@ -8,10 +8,12 @@ await esbuild.build({loader:{'.svg':'dataurl'},stdin:{contents:`import React fro
 await writeFile(root+'/.tools/sftp-ui.html','<meta charset="utf-8"><link rel="stylesheet" href="sftp-ui.css"><div id="root"></div><script src="sftp-ui.js"></script>');
 const browser=await chromium.launch({channel:'msedge',headless:true});try{const page=await browser.newPage({viewport:{width:1440,height:960}});await page.goto(pathToFileURL(root+'/.tools/sftp-ui.html').href);await page.getByLabel('Identifiant',{exact:true}).fill('admin');await page.getByLabel('Mot de passe',{exact:true}).fill('Phrase test 123!');await page.getByRole('button',{name:'Se connecter',exact:true}).click();await page.getByRole('button',{name:'Paramètres',exact:true}).click();await page.getByRole('button',{name:'Partage SFTP',exact:true}).click();
 await page.getByRole('heading',{name:'Partage des données par SFTP'}).waitFor();
+await page.getByLabel('Serveur SFTP',{exact:true}).fill('sftp://sauvagnon.fr');await page.getByLabel('Port SFTP',{exact:true}).fill('2222');
 await page.getByLabel('Mot de passe SFTP',{exact:true}).fill('mot de passe fictif');
 await page.getByLabel('Phrase commune de partage · 12 caractères minimum').fill('Phrase commune fictive!');
 await page.getByRole('button',{name:'Lire l’empreinte SSH'}).click();
 await page.getByLabel('Empreinte SSH fournie ou confirmée par l’hébergeur').waitFor();
+const probe=await page.evaluate(()=>window.calls.filter(c=>c[0]==='shared_probe').at(-1));assert.equal(probe[1].input.host,'sauvagnon.fr');assert.equal(probe[1].input.port,2222);assert.equal(await page.getByLabel('Serveur SFTP',{exact:true}).inputValue(),'sauvagnon.fr');
 assert.equal(await page.getByRole('button',{name:'Tester la connexion',exact:true}).isDisabled(),true);
 await page.getByRole('checkbox',{name:'J’ai vérifié cette empreinte auprès de mon hébergeur.'}).check();
 await page.getByRole('button',{name:'Tester la connexion',exact:true}).click();await page.getByText('Connexion vérifiée.',{exact:true}).waitFor();

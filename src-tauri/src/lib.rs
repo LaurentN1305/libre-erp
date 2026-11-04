@@ -12,6 +12,7 @@ mod exchange;
 mod inventory;
 mod maps;
 mod maps_ign;
+mod maps_vector;
 mod portable;
 mod preferences;
 pub fn portable_start() -> anyhow::Result<()> {
@@ -765,6 +766,7 @@ fn map_open_licence(source: Option<String>) -> Reply<()> {
     response((|| -> Result<()> {
         let url = match source.as_deref().unwrap_or("osm") {
             "osm" => "https://www.openstreetmap.org/copyright",
+            "osm-vector" => "https://openfreemap.org/#attribution",
             "ign" => "https://geoservices.ign.fr/bdtopo",
             _ => bail!("Provenance inconnue"),
         };

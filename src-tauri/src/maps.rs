@@ -56,7 +56,7 @@ impl Default for Services {
             ign: ign_endpoint(),
             ign_fallback: true,
             geocoder: "https://nominatim.openstreetmap.org/search".into(),
-            geometry: "https://overpass-api.de/api/interpreter".into(),
+            geometry: crate::maps_vector::ENDPOINT.into(),
         }
     }
 }
@@ -86,7 +86,7 @@ pub fn validate(location: &Option<Location>) -> Result<()> {
             bail!("Adresse de localisation trop longue")
         };
         if let Some(p) = &l.plan {
-            if !["osm", "ign"].contains(&p.source.as_str()) {
+            if !["osm", "ign", "osm-vector"].contains(&p.source.as_str()) {
                 bail!("Provenance du plan inconnue.")
             }
             let [w, s, e, n] = p.bounds;
@@ -127,7 +127,7 @@ pub fn validate(location: &Option<Location>) -> Result<()> {
     }
     Ok(())
 }
-fn endpoint(value: &str) -> Result<()> {
+pub(crate) fn endpoint(value: &str) -> Result<()> {
     let u = url::Url::parse(value)?;
     if u.scheme() != "https"
         || u.host_str().is_none()
@@ -332,7 +332,7 @@ pub async fn context(c: &Core, token: &str, lat: f64, lon: f64) -> Result<Plan> 
     endpoint(&services.geometry)?;
     endpoint(&services.ign)?;
     // A user-requested refresh always attempts OSM: no hidden five-minute bypass.
-    let primary = geometry_plan(&services.geometry, b).await;
+    let primary = plan_for_service(Some(c),&services.geometry, b).await;
     let plan = match primary {
         Ok(plan) => plan,
         Err(error) => {
@@ -555,7 +555,11 @@ mod direct_tests {
 }
 
 fn legacy_geometry(url: &str) -> bool {
-    matches!(url, "https://overpass.private.coffee/api/interpreter" | "https://api.openstreetmap.org/api/0.6/map.json")
+    matches!(url, "https://overpass.private.coffee/api/interpreter" | "https://api.openstreetmap.org/api/0.6/map.json" | "https://overpass-api.de/api/interpreter")
+}
+async fn plan_for_service(c:Option<&Core>,url:&str,b:[f64;4])->Result<Plan>{
+    if url.ends_with("/api/interpreter") || url.ends_with("/api/0.6/map.json") {geometry_plan(url,b).await}
+    else {tokio::time::timeout(std::time::Duration::from_secs(18),crate::maps_vector::fetch(c,url,b)).await.context("Délai du fond de plan OpenStreetMap dépassé")?}
 }
 async fn geometry_plan(url: &str, b: [f64;4]) -> Result<Plan> {
     endpoint(url)?;
@@ -580,7 +584,7 @@ pub async fn diagnostics(c:&Core,token:&str)->Result<Vec<Diagnostic>> {
     let query=client()?.get(&service.geocoder).query(&[("q","Hotel de Ville Paris France"),("format","jsonv2"),("limit","1")]).timeout(std::time::Duration::from_secs(10)).send().await;
     let geo:Result<usize>=async{let bytes=limited(query.context("Connexion au géocodage impossible ou délai dépassé")?,256*1024).await?;Ok(candidates(serde_json::from_slice(&bytes)?)?.len())}.await;
     result.push(match geo {Ok(n)=>Diagnostic{service:"Recherche d’adresse OpenStreetMap".into(),ok:n>0,detail:format!("{} résultat(s) pour l’exemple public Hôtel de Ville de Paris",n)},Err(e)=>Diagnostic{service:"Recherche d’adresse OpenStreetMap".into(),ok:false,detail:e.to_string()}});
-    for (name,test) in [("Plan OpenStreetMap",geometry_plan(&service.geometry,b).await),("Plan IGN",crate::maps_ign::fetch(&service.ign,b).await)]{
+    for (name,test) in [("Plan OpenStreetMap",plan_for_service(Some(c),&service.geometry,b).await),("Plan IGN",crate::maps_ign::fetch(&service.ign,b).await)]{
         result.push(match test {Ok(p)=>Diagnostic{service:name.into(),ok:true,detail:format!("{} objets reçus et interprétés",p.features.len())},Err(e)=>Diagnostic{service:name.into(),ok:false,detail:e.to_string()}});
     }
     Ok(result)
@@ -589,5 +593,5 @@ pub async fn diagnostics(c:&Core,token:&str)->Result<Vec<Diagnostic>> {
 mod service_tests {
  use super::*;
  #[test] fn replaces_only_obsolete_public_endpoints(){assert!(legacy_geometry("https://api.openstreetmap.org/api/0.6/map.json"));assert!(legacy_geometry("https://overpass.private.coffee/api/interpreter"));assert!(!legacy_geometry("https://mon-service.fr/api/interpreter"));}
- #[tokio::test] #[ignore="Recette réseau OSM volontaire"] async fn live_readonly_osm(){let p=geometry_plan(&Services::default().geometry,bounds(48.8566,2.3522)).await.unwrap();assert_eq!(p.source,"osm");assert!(!p.features.is_empty());}
+ #[tokio::test] #[ignore="Recette réseau OSM volontaire"] async fn live_readonly_osm(){let p=plan_for_service(None,&Services::default().geometry,bounds(48.8566,2.3522)).await.unwrap();assert_eq!(p.source,"osm-vector");assert!(!p.features.is_empty());}
 }

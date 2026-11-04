@@ -1,0 +1,9 @@
+Correction du fond OpenStreetMap et de la saisie SFTP
+
+- Les plans OpenStreetMap utilisent désormais des tuiles vectorielles OpenFreeMap / OpenMapTiles plutôt que des requêtes Overpass.
+- Les anciennes adresses publiques par défaut sont remplacées automatiquement. Les services personnalisés sont conservés.
+- Les plans restent enregistrés localement et consultables hors ligne ; le cache des tuiles est chiffré et limité.
+- Les noms des rues sont espacés pour limiter les superpositions sur le mini-plan.
+- Le secours IGN et les anciens plans sont conservés.
+- Les adresses SFTP avec le préfixe sftp:// sont acceptées, y compris avec un port dans l’adresse.
+- Les messages distinguent mieux la recherche d’adresse, le fond OSM et le secours IGN.
