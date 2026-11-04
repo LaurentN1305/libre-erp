@@ -1,0 +1,7 @@
+Libre ERP 0.12.2 — Enregistrement des plans OpenStreetMap
+
+Correction de l’erreur « Unknown map provenance » lors de l’enregistrement d’un plan OpenStreetMap vectoriel.
+La base existante est adaptée automatiquement au démarrage, après création d’une copie de sécurité. Les fiches et les plans déjà enregistrés sont conservés.
+Après installation, ouvrez la fiche du bâtiment et cliquez sur « Actualiser le plan (Internet) », puis enregistrez la fiche.
+
+Partage SFTP : chaque poste doit installer cette version avant de reprendre le travail sur l’espace partagé. Envoyez et libérez votre travail avant la mise à jour. Cette correction fait évoluer le format de la base ; les versions précédentes ne peuvent pas ouvrir une sauvegarde créée par la version 0.12.2.

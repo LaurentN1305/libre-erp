@@ -9,7 +9,7 @@ use std::{
 };
 use zeroize::Zeroizing;
 
-pub const SCHEMA_VERSION: i64 = 13;
+pub const SCHEMA_VERSION: i64 = 14;
 
 pub fn now() -> String {
     chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)
@@ -175,6 +175,97 @@ pub async fn before_migration(root: &Path, pool: &SqlitePool) -> Result<Option<P
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn vector_map_upgrade_preserves_existing_maps_and_validates_insert_update() {
+        let root = std::env::temp_dir().join(format!("erp-map-upgrade-{}", id()));
+        let migrations = root.join("old-migrations");
+        std::fs::create_dir_all(&migrations).unwrap();
+        for entry in std::fs::read_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/migrations")).unwrap()
+        {
+            let entry = entry.unwrap();
+            let name = entry.file_name().to_string_lossy().into_owned();
+            if name.ends_with(".sql") && name[..4].parse::<i64>().unwrap() <= 13 {
+                std::fs::copy(entry.path(), migrations.join(name)).unwrap();
+            }
+        }
+        std::fs::create_dir_all(root.join("db")).unwrap();
+        std::fs::create_dir_all(root.join("recovery")).unwrap();
+        let path = root.join("db/registre.db");
+        let key = crate::crypto::random_key();
+        let pool = open(&path, &key, true).await.unwrap();
+        sqlx::migrate::Migrator::new(migrations.as_path())
+            .await
+            .unwrap()
+            .run(&pool)
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO organisations(id,name,created_at) VALUES('org','Test','2026-11-04')",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        for (id, source) in [("old-osm", "osm"), ("old-ign", "ign")] {
+            sqlx::query("INSERT INTO entities(id,organisation_id,kind,created_at) VALUES(?,'org','building','2026-11-04')").bind(id).execute(&pool).await.unwrap();
+            sqlx::query("INSERT INTO buildings(id,organisation_id,name,address,erp_category,capacity,location_json) VALUES(?,'org',?,'Test',5,10,?)")
+                .bind(id).bind(id).bind(serde_json::json!({"plan":{"source":source,"features":[]}}).to_string()).execute(&pool).await.unwrap();
+        }
+        let vector = r#"{"plan":{"source":"osm-vector","features":[]}}"#;
+        assert!(
+            sqlx::query("UPDATE buildings SET location_json=? WHERE id='old-osm'")
+                .bind(vector)
+                .execute(&pool)
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("Unknown map provenance")
+        );
+        let before: Vec<(String, String)> =
+            sqlx::query_as("SELECT id,location_json FROM buildings ORDER BY id")
+                .fetch_all(&pool)
+                .await
+                .unwrap();
+        let snapshot = before_migration(&root, &pool).await.unwrap().unwrap();
+        assert!(snapshot.exists());
+        migrate(&pool).await.unwrap();
+        migrate(&pool).await.unwrap();
+        let after: Vec<(String, String)> =
+            sqlx::query_as("SELECT id,location_json FROM buildings ORDER BY id")
+                .fetch_all(&pool)
+                .await
+                .unwrap();
+        assert_eq!(before, after);
+        sqlx::query("UPDATE buildings SET location_json=? WHERE id='old-osm'")
+            .bind(vector)
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO entities(id,organisation_id,kind,created_at) VALUES('new','org','building','2026-11-04')").execute(&pool).await.unwrap();
+        sqlx::query("INSERT INTO buildings(id,organisation_id,name,address,erp_category,capacity,location_json) VALUES('new','org','New','Test',5,10,?)").bind(vector).execute(&pool).await.unwrap();
+        let invalid = r#"{"plan":{"source":"unknown"}}"#;
+        assert!(
+            sqlx::query("UPDATE buildings SET location_json=? WHERE id='new'")
+                .bind(invalid)
+                .execute(&pool)
+                .await
+                .is_err()
+        );
+        sqlx::query("INSERT INTO entities(id,organisation_id,kind,created_at) VALUES('bad','org','building','2026-11-04')").execute(&pool).await.unwrap();
+        assert!(sqlx::query("INSERT INTO buildings(id,organisation_id,name,address,erp_category,capacity,location_json) VALUES('bad','org','Bad','Test',5,10,?)").bind(invalid).execute(&pool).await.is_err());
+        check(&pool).await.unwrap();
+        pool.close().await;
+        let reopened = open(&path, &key, false).await.unwrap();
+        assert_eq!(
+            sqlx::query_scalar::<_, String>("SELECT location_json FROM buildings WHERE id='new'")
+                .fetch_one(&reopened)
+                .await
+                .unwrap(),
+            vector
+        );
+        reopened.close().await;
+        ensure_within(&root, &std::env::temp_dir()).unwrap();
+        std::fs::remove_dir_all(root).unwrap();
+    }
     #[tokio::test]
     async fn encryption_and_migrations() {
         let root = std::env::temp_dir().join(format!("erp-test-{}", id()));

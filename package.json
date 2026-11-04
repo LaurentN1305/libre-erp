@@ -1,6 +1,6 @@
 {
   "name": "securite-erp",
-  "version": "0.12.1",
+  "version": "0.12.2",
   "private": true,
   "packageManager": "pnpm@11.25.0",
   "type": "module",
