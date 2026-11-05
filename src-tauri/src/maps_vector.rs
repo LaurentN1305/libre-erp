@@ -282,9 +282,25 @@ fn intersects(points: &[[f64; 2]], b: [f64; 4]) -> bool {
     }
     max[0] >= b[0] && min[0] <= b[2] && max[1] >= b[1] && min[1] <= b[3]
 }
+fn surface_kind(layer: &str, class: Option<&str>, subclass: Option<&str>) -> Option<&'static str> {
+    match (layer, class, subclass) {
+        ("water", _, _) => Some("water"),
+        ("waterway", _, _) => Some("waterway"),
+        ("park", _, _) | ("landcover", _, Some("park")) => Some("park"),
+        ("landcover", _, Some("orchard" | "vineyard")) => Some("orchard"),
+        ("landcover", Some("wood"), _) => Some("wood"),
+        ("landcover", Some("grass"), _) => Some("grass"),
+        ("landcover", Some("farmland"), _) => Some("farmland"),
+        ("landuse", Some("residential"), _) => Some("residential"),
+        ("landuse", Some("commercial" | "retail"), _) => Some("commercial"),
+        ("landuse", Some("industrial"), _) => Some("industrial"),
+        ("landuse", Some("pitch"), _) => Some("pitch"),
+        _ => None,
+    }
+}
 fn append(tile: Tile, id: TileId, plan: &mut Plan, points_used: &mut usize) -> Result<()> {
     // Les voies nommées passent en premier pour conserver les libellés en cas de limite.
-    for layer_name in ["transportation_name", "transportation", "building"] {
+    for layer_name in ["transportation_name", "transportation", "water", "waterway", "landuse", "park", "landcover", "building"] {
         for layer in tile.layers.iter().filter(|l| l.name == layer_name) {
             if !(1..=2).contains(&layer.version) {
                 bail!("Version de tuile non prise en charge");
@@ -294,17 +310,27 @@ fn append(tile: Tile, id: TileId, plan: &mut Plan, points_used: &mut usize) -> R
                 bail!("Échelle de tuile invalide");
             }
             for f in &layer.features {
-                let building = layer_name == "building";
-                if f.kind != Some(if building { 3 } else { 2 }) {
-                    continue;
-                }
                 if f.tags.len() % 2 != 0 {
                     bail!("Attributs de tuile invalides");
                 }
-                if !building
-                    && attribute(layer, f, "class")
-                        .is_some_and(|v| ["rail", "transit", "aerialway", "ferry"].contains(&v))
-                {
+                let class = attribute(layer, f, "class");
+                let kind = match layer_name {
+                    "transportation_name" | "transportation" => {
+                        if class.is_some_and(|v| ["rail", "transit", "aerialway", "ferry"].contains(&v)) {
+                            continue;
+                        }
+                        "road"
+                    }
+                    "building" => "building",
+                    _ => {
+                        let Some(kind) = surface_kind(layer_name, class, attribute(layer, f, "subclass")) else {
+                            continue;
+                        };
+                        kind
+                    }
+                };
+                let polygon = !["road", "waterway"].contains(&kind);
+                if f.kind != Some(if polygon { 3 } else { 2 }) {
                     continue;
                 }
                 let name = ["name:fr", "name", "name:latin"]
@@ -319,11 +345,13 @@ fn append(tile: Tile, id: TileId, plan: &mut Plan, points_used: &mut usize) -> R
                         (*size <= 250).then_some(c)
                     })
                     .collect::<String>();
+                let mut exterior: Option<usize> = None;
                 for part in segments(&f.geometry)? {
-                    if part.len() < if building { 4 } else { 2 } {
+                    if part.len() < if polygon { 4 } else { 2 } {
                         continue;
                     }
-                    if building {
+                    let mut hole = false;
+                    if polygon {
                         let area: i128 = part
                             .windows(2)
                             .map(|p| {
@@ -331,9 +359,11 @@ fn append(tile: Tile, id: TileId, plan: &mut Plan, points_used: &mut usize) -> R
                                     - p[1][0] as i128 * p[0][1] as i128
                             })
                             .sum();
-                        if area <= 0 {
+                        if area == 0 {
                             continue;
                         }
+                        hole = area < 0;
+                        if !hole { exterior = None; }
                     }
                     let points = part
                         .into_iter()
@@ -342,17 +372,24 @@ fn append(tile: Tile, id: TileId, plan: &mut Plan, points_used: &mut usize) -> R
                     if !intersects(&points, plan.bounds) {
                         continue;
                     }
-                    if plan.features.len() >= 2000 || *points_used + points.len() > 50000 {
+                    if hole && exterior.is_none() { continue; }
+                    if (!hole && plan.features.len() >= 2000) || *points_used + points.len() > 50000 {
                         plan.truncated = true;
                         continue;
                     }
                     *points_used += points.len();
-                    plan.features.push(Feature {
-                        kind: if building { "building" } else { "road" }.into(),
-                        road_class: (!building).then(|| attribute(layer, f, "class")).flatten().map(str::to_owned),
-                        name: name.clone(),
-                        points,
-                    });
+                    if let Some(index) = exterior.filter(|_| hole) {
+                        plan.features[index].holes.push(points);
+                    } else {
+                        if polygon { exterior = Some(plan.features.len()); }
+                        plan.features.push(Feature {
+                            kind: kind.into(),
+                            road_class: class.filter(|_| kind == "road").map(str::to_owned),
+                            name: name.clone(),
+                            points,
+                            holes: vec![],
+                        });
+                    }
                 }
             }
         }
@@ -472,6 +509,37 @@ mod tests {
         assert_eq!(plan.features[0].points[0], [0., 0.]);
     }
 
+    #[test]
+    fn landcover_keeps_polygon_holes() {
+        let tile = Tile {
+            layers: vec![Layer {
+                version: 2,
+                name: "landcover".into(),
+                extent: Some(4096),
+                keys: vec!["class".into()],
+                values: vec![TileValue { text: Some("wood".into()) }],
+                features: vec![TileFeature {
+                    kind: Some(3),
+                    tags: vec![0, 0],
+                    geometry: vec![9, 4080, 4080, 26, 32, 0, 0, 32, 31, 0, 15, 9, 8, 23, 26, 0, 16, 16, 0, 0, 15, 15],
+                }],
+            }],
+        };
+        let mut plan = Plan {
+            source: "osm-vector".into(),
+            bounds: [-2., -2., 2., 2.],
+            features: vec![],
+            obtained_at: db::now(),
+            truncated: false,
+        };
+        let mut points = 0;
+        append(tile, TileId { z: 0, x: 0, y: 0 }, &mut plan, &mut points).unwrap();
+        assert_eq!(plan.features.len(), 1);
+        assert_eq!(plan.features[0].kind, "wood");
+        assert_eq!(plan.features[0].holes.len(), 1);
+        assert_eq!(points, 10);
+    }
+
     #[tokio::test]
     async fn tile_cache_is_encrypted_and_can_be_read_without_network() {
         let root = std::env::temp_dir().join(format!("libre-erp-map-cache-{}", db::id()));
@@ -501,6 +569,26 @@ mod tests {
         zipped.write_all(&vec![0; MAX_DECODED + 1]).unwrap();
         assert!(decode(&zipped.finish().unwrap()).is_err());
     }
+    #[tokio::test]
+    #[ignore = "Recette publique OpenFreeMap demandée"]
+    async fn live_vector_public_sauvagnon() {
+        let p = fetch(None, ENDPOINT, maps::bounds(43.403757, -0.385990)).await.unwrap();
+        assert!(p.features.iter().any(|f| f.kind == "residential"));
+        assert!(p.features.iter().any(|f| ["grass", "wood", "farmland", "pitch"].contains(&f.kind.as_str())));
+        maps::validate(&Some(maps::Location {
+            lat: 43.403757,
+            lon: -0.385990,
+            source_address: "Centre Festif de Sauvagnon (exemple public)".into(),
+            plan: Some(p.clone()),
+        })).unwrap();
+        if let Some(path) = std::env::var_os("ERP_MAP_TEST_OUTPUT") {
+            std::fs::write(path, serde_json::to_vec(&p).unwrap()).unwrap();
+        }
+        let mut counts = std::collections::BTreeMap::new();
+        for feature in p.features { *counts.entry(feature.kind).or_insert(0) += 1; }
+        println!("{counts:?}");
+    }
+
     #[tokio::test]
     #[ignore = "Recette publique OpenFreeMap demandée"]
     async fn live_vector_public_paris() {

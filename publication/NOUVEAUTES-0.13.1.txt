@@ -1,0 +1,1 @@
+Les plans OpenStreetMap affichent les zones résidentielles, les espaces verts et les surfaces d’eau disponibles. Les voies locales sont dessinées plus finement. Actualisez le fond des plans déjà enregistrés pour charger ces nouvelles couches.

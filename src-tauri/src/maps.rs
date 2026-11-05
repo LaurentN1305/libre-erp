@@ -11,6 +11,8 @@ pub struct Feature {
     pub road_class: Option<String>,
     pub name: String,
     pub points: Vec<[f64; 2]>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub holes: Vec<Vec<[f64; 2]>>,
 }
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Plan {
@@ -109,19 +111,23 @@ pub fn validate(location: &Option<Location>) -> Result<()> {
                 bail!("Emprise du plan invalide.")
             }
             if p.features.len() > 2000
-                || p.features.iter().map(|f| f.points.len()).sum::<usize>() > 50000
+                || p.features.iter().map(|f| f.points.len() + f.holes.iter().map(Vec::len).sum::<usize>()).sum::<usize>() > 50000
                 || p.obtained_at.len() > 50
             {
                 bail!("Plan trop volumineux.")
             }
             for f in &p.features {
-                if !["road", "building"].contains(&f.kind.as_str())
+                let line = ["road", "waterway"].contains(&f.kind.as_str());
+                let surface = ["water", "grass", "wood", "farmland", "park", "residential", "commercial", "industrial", "pitch", "orchard"].contains(&f.kind.as_str());
+                if !(line || surface || f.kind == "building")
                     || f.name.len() > 250
-                    || f.points.len() < 2
+                    || f.points.len() < if surface { 4 } else { 2 }
+                    || (line && !f.holes.is_empty())
+                    || f.holes.iter().any(|ring| ring.len() < 4)
                 {
                     bail!("Objet du plan invalide.")
                 }
-                for [x, y] in &f.points {
+                for [x, y] in f.points.iter().chain(f.holes.iter().flatten()) {
                     point(*y, *x)?;
                 }
             }
@@ -316,6 +322,7 @@ pub fn parse_plan(value: Value, extent: [f64; 4]) -> Result<Plan> {
                 .take(250)
                 .collect(),
             points,
+            holes: vec![],
         });
     }
     Ok(Plan {

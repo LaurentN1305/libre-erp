@@ -1,6 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {call,message,Session} from './api';
-export type MapFeature={kind:'road'|'building';name:string;road_class?:string;points:[number,number][]};
+export type MapFeature={kind:'road'|'building'|'waterway'|MapSurface;name:string;road_class?:string;points:[number,number][];holes?:[number,number][][]};
+type MapSurface='water'|'grass'|'wood'|'farmland'|'park'|'residential'|'commercial'|'industrial'|'pitch'|'orchard';
 export type MapPlan={source?:'osm'|'ign'|'osm-vector';bounds:[number,number,number,number];features:MapFeature[];obtained_at:string;truncated:boolean};
 export type BuildingLocation={lat:number;lon:number;source_address:string;plan:MapPlan|null};
 type Candidate={lat:number;lon:number;label:string};
@@ -13,15 +14,26 @@ const roadColors: Record<string, [string,string]> = {
  primary:['#fcd6a4','#a06b00'],
  secondary:['#f7fabf','#707d05'],
 };
+const surfaceColors: Record<MapSurface,string> = {
+ residential:'#e0dfdf', commercial:'#f2dad9', industrial:'#ebdbe8',
+ farmland:'#eef0d5', orchard:'#aedfa3', wood:'#add19e', grass:'#cdebb0',
+ park:'#c8facc', pitch:'#aae0cb', water:'#aad3df',
+};
 export function BuildingMap({location,onPick}:{location:BuildingLocation|null|undefined;onPick?:(lat:number,lon:number)=>void}){
  if(!location)return <div className="map-placeholder">Localisation non renseignée. Modifiez la fiche pour rechercher l’adresse ou saisir une position.</div>;
  const b=location.plan?.bounds??extent(location);const xy=([lon,lat]:[number,number])=>[(lon-b[0])/(b[2]-b[0])*600,(b[3]-lat)/(b[3]-b[1])*320];const [px,py]=xy([location.lon,location.lat]);
  const pick=(x:number,y:number)=>onPick?.(b[3]-Math.max(0,Math.min(1,y))*(b[3]-b[1]),b[0]+Math.max(0,Math.min(1,x))*(b[2]-b[0]));
+ const polygonPath=(feature:MapFeature)=>[feature.points,...(feature.holes??[])]
+   .map(ring=>'M'+ring.map(point=>xy(point).join(',')).join('L')+'Z').join(' ');
+ const surfaces = Object.keys(surfaceColors) as MapSurface[];
  const names=new Set<string>();const labelBoxes:number[][]=[[px-18,py-18,px+18,py+18]];
  return <figure className="building-map"><svg viewBox="0 0 600 320" role={onPick?'group':'img'} tabIndex={onPick?0:undefined} aria-label={onPick?'Position du bâtiment : cliquez pour déplacer le repère ; utilisez aussi les flèches du clavier.':'Plan de localisation du bâtiment'} onClick={onPick?e=>{const r=e.currentTarget.getBoundingClientRect();pick((e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height)}:undefined} onKeyDown={onPick?e=>{const arrows:Record<string,[number,number]>={ArrowLeft:[-.01,0],ArrowRight:[.01,0],ArrowUp:[0,-.01],ArrowDown:[0,.01]};if(arrows[e.key]){e.preventDefault();pick(px/600+arrows[e.key][0],py/320+arrows[e.key][1])}}:undefined}>
  <rect width="600" height="320" fill="#f2efe9"/>{!location.plan&&<><path d="M0 80H600M0 160H600M0 240H600M100 0V320M200 0V320M300 0V320M400 0V320M500 0V320" stroke="#e1d8cd"/><text x="15" y="25" fill="#705d59" fontSize="13">Position enregistrée</text></>}
- {location.plan?.features.filter(f=>f.kind==='building').map((f,i)=><polygon key={i} points={f.points.map(p=>xy(p).join(',')).join(' ')} fill="#d9d0c9" stroke="#b9a99c" strokeWidth="1"/>)}
- {location.plan?.features.filter(f=>f.kind==='road').map((f,i)=><g key={i}><polyline points={f.points.map(p=>xy(p).join(',')).join(' ')} fill="none" stroke={roadColors[f.road_class??'']?.[1]??"#bbb7ae"} strokeWidth="8" strokeLinejoin="round"/><polyline points={f.points.map(p=>xy(p).join(',')).join(' ')} fill="none" stroke={roadColors[f.road_class??'']?.[0]??"white"} strokeWidth="5" strokeLinejoin="round"/></g>)}
+ {surfaces.map(kind=><g key={kind}>{location.plan?.features.filter(f=>f.kind===kind).map((f,i)=>
+   <path key={i} d={polygonPath(f)} fill={surfaceColors[kind]} fillRule="evenodd"/>)}</g>)}
+ {location.plan?.features.filter(f=>f.kind==='waterway').map((f,i)=><polyline key={i} points={f.points.map(p=>xy(p).join(',')).join(' ')} fill="none" stroke={surfaceColors.water} strokeWidth="2"/>)}
+ {location.plan?.features.filter(f=>f.kind==='building').map((f,i)=><path key={i} d={polygonPath(f)} fill="#d9d0c9" fillRule="evenodd" stroke="#b9a99c" strokeWidth="1"/>)}
+ {location.plan?.features.filter(f=>f.kind==='road').map((f,i)=><g key={i}><polyline points={f.points.map(p=>xy(p).join(',')).join(' ')} fill="none" stroke={roadColors[f.road_class??'']?.[1]??"#bbb7ae"} strokeWidth={roadColors[f.road_class??'']?8:5} strokeLinejoin="round"/><polyline points={f.points.map(p=>xy(p).join(',')).join(' ')} fill="none" stroke={roadColors[f.road_class??'']?.[0]??"white"} strokeWidth={roadColors[f.road_class??'']?5:3} strokeLinejoin="round"/></g>)}
  {location.plan?.features.filter(f=>f.kind==='road'&&f.name).map((f,i)=>{if(names.has(f.name)||names.size>=20)return null;const projected=f.points.map(xy);const candidates=projected.flatMap((p,i)=>{if(!i)return [p];const a=projected[i-1],dx=p[0]-a[0],dy=p[1]-a[1],t=Math.max(0,Math.min(1,((300-a[0])*dx+(160-a[1])*dy)/(dx*dx+dy*dy||1)));return [p,[a[0]+t*dx,a[1]+t*dy]]}).filter(([x,y])=>x>25&&x<575&&y>20&&y<300).sort((a,b)=>Math.hypot(a[0]-300,a[1]-160)-Math.hypot(b[0]-300,b[1]-160));if(!candidates.length)return null;const label=f.name.length>42?f.name.slice(0,39)+'…':f.name;const halfWidth=Array.from(label).length*3.2+5;const chosen=candidates.find(([x,y])=>{const box=[x-halfWidth,y-23,x+halfWidth,y-3];return box[0]>8&&box[2]<592&&!labelBoxes.some(b=>box[0]<b[2]+4&&box[2]>b[0]-4&&box[1]<b[3]+4&&box[3]>b[1]-4)});if(!chosen)return null;names.add(f.name);const [x,y]=chosen;labelBoxes.push([x-halfWidth,y-23,x+halfWidth,y-3]);return <text key={i} x={x} y={y-8} textAnchor="middle" fontSize="11" fill="#454545" stroke="white" strokeWidth="3" paintOrder="stroke"><title>{f.name}</title>{label}</text>})}
  <circle cx={px} cy={py} r="10" fill="#a51d32" stroke="white" strokeWidth="3"/><circle cx={px} cy={py} r="3" fill="white"/><text x="580" y="22" textAnchor="end" fontSize="13" fill="#514943">N ↑</text>
  </svg><figcaption><span>{location.lat.toFixed(6)}, {location.lon.toFixed(6)}</span><span>{location.plan?<button type="button" className="map-attribution" onClick={()=>void call('map_open_licence',{source:location.plan?.source??'osm'}).catch(()=>{})}>{location.plan?.source==='ign'?'© IGN · BD TOPO · Licence Ouverte 2.0':location.plan?.source==='osm-vector'?'© OpenMapTiles · © contributeurs OpenStreetMap · ODbL 1.0':'© contributeurs OpenStreetMap · ODbL 1.0'}</button>:'Repère local · sans fond de plan'}</span></figcaption>{location.plan?.source==='ign'&&<small className="map-fallback" role="status">Plan IGN chargé automatiquement : le service de plans OpenStreetMap n’a pas répondu. La localisation reste enregistrée.</small>}{location.plan&&<small>Plan enregistré le {new Date(location.plan.obtained_at).toLocaleDateString('fr-FR')} · consultable hors ligne{location.plan.truncated?' · détails limités':''}</small>}</figure>

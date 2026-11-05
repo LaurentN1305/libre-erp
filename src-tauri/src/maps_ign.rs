@@ -117,6 +117,7 @@ pub fn parse(layers: [Value; 2], extent: [f64; 4]) -> Result<Plan> {
                     road_class: None,
                     name: name.clone(),
                     points: geometry,
+                    holes: vec![],
                 });
             }
         }
