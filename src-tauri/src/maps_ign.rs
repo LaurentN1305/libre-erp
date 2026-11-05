@@ -114,6 +114,7 @@ pub fn parse(layers: [Value; 2], extent: [f64; 4]) -> Result<Plan> {
                 count += geometry.len();
                 features.push(Feature {
                     kind: if i == 0 { "road" } else { "building" }.into(),
+                    road_class: None,
                     name: name.clone(),
                     points: geometry,
                 });

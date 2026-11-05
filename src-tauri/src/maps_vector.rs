@@ -349,6 +349,7 @@ fn append(tile: Tile, id: TileId, plan: &mut Plan, points_used: &mut usize) -> R
                     *points_used += points.len();
                     plan.features.push(Feature {
                         kind: if building { "building" } else { "road" }.into(),
+                        road_class: (!building).then(|| attribute(layer, f, "class")).flatten().map(str::to_owned),
                         name: name.clone(),
                         points,
                     });

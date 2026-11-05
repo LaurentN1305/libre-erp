@@ -27,6 +27,7 @@ async fn building(c: &Core, t: &str, name: &str) -> String {
                     source: "ign".into(),
                     bounds: crate::maps::bounds(48.8566, 2.3522),
                     features: vec![crate::maps::Feature {
+                        road_class: None,
                         kind: "road".into(),
                         name: "Rue exemple".into(),
                         points: vec![[2.3521, 48.8565], [2.3523, 48.8567]],

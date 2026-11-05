@@ -1,0 +1,4 @@
+Ajouts rapides sur les fiches bâtiment et répertoire commun des prestataires.
+Bibliothèque de documents avec date du document, catégories modifiables et corbeille restaurable.
+Libération de la réservation SFTP sans envoi lorsqu’aucun changement n’attend.
+Couleurs des plans rapprochées du style standard OpenStreetMap.

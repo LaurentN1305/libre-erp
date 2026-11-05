@@ -81,6 +81,8 @@ pub struct Package {
     created_at: String,
     tables: Tables,
     authors: BTreeMap<String, String>,
+    #[serde(default)]
+    document_categories: BTreeMap<String, String>,
     files: Vec<Attachment>,
 }
 #[derive(Serialize)]
@@ -313,6 +315,18 @@ async fn collect(c: &Core, building: &str) -> Result<Package> {
         });
     }
     files.sort_by(|a, b| a.id.cmp(&b.id));
+    let mut document_categories = BTreeMap::new();
+    if let Some(documents) = tables.get("documents") {
+        for row in documents {
+            if let Some(code) = row.get("category_code").and_then(Value::as_str) {
+                if uuid::Uuid::parse_str(code).is_ok() && !document_categories.contains_key(code) {
+                    let label: String = sqlx::query_scalar("SELECT label FROM document_categories WHERE code=?")
+                        .bind(code).fetch_one(&c.pool).await?;
+                    document_categories.insert(code.to_owned(), label);
+                }
+            }
+        }
+    }
     let p = Package {
         format: 1,
         schema: db::SCHEMA_VERSION,
@@ -322,6 +336,7 @@ async fn collect(c: &Core, building: &str) -> Result<Package> {
         created_at: db::now(),
         tables,
         authors,
+        document_categories,
         files,
     };
     validate(&p)?;
@@ -330,6 +345,11 @@ async fn collect(c: &Core, building: &str) -> Result<Package> {
 fn validate(p: &Package) -> Result<()> {
     if p.format != 1 || p.schema != db::SCHEMA_VERSION {
         bail!("Version d’échange incompatible. Mettez les deux applications à la même version.")
+    }
+    if p.document_categories.len() > 5000 || p.document_categories.iter().any(|(code,label)|
+        uuid::Uuid::parse_str(code).is_err() || label.trim().is_empty() || label.chars().count() > 100
+    ) {
+        bail!("Catégories de documents invalides.");
     }
     uuid::Uuid::parse_str(&p.lineage)?;
     uuid::Uuid::parse_str(&p.building)?;
@@ -659,6 +679,9 @@ pub async fn import(
  let id=&map[&f.id];let key=crypto::random_key();let bytes=B64.decode(&f.bytes)?;let sealed=crypto::seal(&key,&bytes,id.as_bytes())?;let storage=format!("{id}.blob");let file=c.root.join("files").join(&storage);
  db::atomic_write(&file,&sealed)?;written.push(file);
  sqlx::query("INSERT INTO files(id,organisation_id,storage_key,original_name,mime_type,plaintext_sha256,byte_size,encryption_version,nonce,key_envelope,created_at,created_by) VALUES(?,?,?,?,?,?,?,1,?,?,?,?)").bind(id).bind(&org).bind(storage).bind(&f.name).bind(&f.mime).bind(&f.sha256).bind(bytes.len() as i64).bind(&sealed[..12]).bind(crypto::seal(&c.key,&key,format!("file:{id}").as_bytes())?).bind(db::now()).bind(&actor).execute(&mut *tx).await?;
+ }
+ for (code,label) in &p.document_categories {
+ sqlx::query("INSERT INTO document_categories(code,label) VALUES(?,?) ON CONFLICT(code) DO NOTHING").bind(code).bind(label).execute(&mut *tx).await?;
  }
  for (table,rs) in &p.tables{
  let columns=sqlx::query(&format!("PRAGMA table_info({table})")).fetch_all(&mut *tx).await?;

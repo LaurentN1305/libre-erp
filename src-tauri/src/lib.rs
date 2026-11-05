@@ -1164,7 +1164,7 @@ pub fn run() {
                 }
             }
         })
-        .invoke_handler(tauri::generate_handler![shared_status,shared_settings,shared_probe,shared_test,shared_connection_save,shared_configure,shared_open,shared_edit,shared_publish,shared_disable,shared_close,shared_reservation,shared_release_abandoned,report_table,report_save,csv_import_options,csv_import_preview,csv_import_apply,csv_import_template,alerts_snapshot,alerts_poll,alert_acknowledge,alert_history,alert_rule_save,alert_manual_save,alert_manual_complete,alert_settings_save,alert_notification_test,alert_notification_retry,documents_snapshot,document_save,document_archive,document_history,document_file_save,documents_search,preferences_get,preferences_save,organisation_logo,contracts_snapshot,contract_save,contract_action,contract_history,contract_attach,contract_file_save,inventory_snapshot,inventory_detail,inventory_save,inventory_archive,inventory_location_add,inventory_category_add,inventory_maintenance,inventory_reading,inventory_reading_cancel,inventory_history,inventory_search,inventory_photo,inventory_photo_attach,inventory_photo_remove,inventory_labels_save,app_icon_refresh,map_open_licence,map_geocode,map_context,map_diagnostics,map_settings,map_settings_save,work_simple_transition,building_exchange_export,building_exchange_preview,building_exchange_import,works_snapshot,work_save,work_transition,work_history,works_search,work_cost,work_cost_reverse,work_file_active,work_attach,work_file_save,register_search,register_attachment_save,register_font,register_snapshot,register_save,register_history,register_archive,register_attachment,register_attach,register_export_pdf,user_scope,dashboard_snapshot,building_save,building_archive,building_photo,building_photo_set,app_status,bootstrap,login,logout,users,user_create,user_active,password_change,mfa_begin,mfa_confirm,audit_list,audit_verify,backup_settings,backup_schedule,backup_folder,backup_now,restore_prepare,restore_apply,update_status,update_channel,update_check,update_install]);
+        .invoke_handler(tauri::generate_handler![shared_status,shared_settings,shared_probe,shared_test,shared_connection_save,shared_configure,shared_open,shared_edit,shared_publish,shared_disable,shared_close,shared_reservation,shared_release_abandoned,report_table,report_save,csv_import_options,csv_import_preview,csv_import_apply,csv_import_template,alerts_snapshot,alerts_poll,alert_acknowledge,alert_history,alert_rule_save,alert_manual_save,alert_manual_complete,alert_settings_save,alert_notification_test,alert_notification_retry,documents_snapshot,document_save,document_archive,document_trash,document_category_save,document_history,document_file_save,documents_search,preferences_get,preferences_save,organisation_logo,contracts_snapshot,contract_save,contract_action,contract_history,contract_attach,contract_file_save,inventory_snapshot,inventory_detail,inventory_save,inventory_archive,inventory_location_add,inventory_category_add,inventory_maintenance,inventory_reading,inventory_reading_cancel,inventory_history,inventory_search,inventory_photo,inventory_photo_attach,inventory_photo_remove,inventory_labels_save,app_icon_refresh,map_open_licence,map_geocode,map_context,map_diagnostics,map_settings,map_settings_save,work_simple_transition,building_exchange_export,building_exchange_preview,building_exchange_import,works_snapshot,work_save,work_transition,work_history,works_search,work_cost,work_cost_reverse,work_file_active,work_attach,work_file_save,register_search,register_attachment_save,register_font,register_snapshot,register_save,register_history,register_archive,register_attachment,register_attach,register_export_pdf,user_scope,dashboard_snapshot,building_save,building_archive,building_photo,building_photo_set,app_status,bootstrap,login,logout,users,user_create,user_active,password_change,mfa_begin,mfa_confirm,audit_list,audit_verify,backup_settings,backup_schedule,backup_folder,backup_now,restore_prepare,restore_apply,update_status,update_channel,update_check,update_install]);
     if let Err(e) = builder.run(tauri::generate_context!()) {
         eprintln!("Démarrage interrompu : {e}");
     }
@@ -1671,6 +1671,14 @@ async fn document_archive(
     )
 }
 #[tauri::command]
+async fn document_trash(state: State<'_, Shared>, token: String, id: String, revision: i64, deleted: bool) -> Reply<()> {
+    response(documents::trash(&*state.lock().await, &token, &id, revision, deleted).await)
+}
+#[tauri::command]
+async fn document_category_save(state: State<'_, Shared>, token: String, code: Option<String>, label: String) -> Reply<()> {
+    response(documents::category_save(&*state.lock().await, &token, code.as_deref(), &label).await)
+}
+#[tauri::command]
 async fn document_history(
     state: State<'_, Shared>,
     token: String,
@@ -1738,6 +1746,7 @@ async fn documents_search(
                 .as_array()
                 .unwrap()
                 .iter()
+                .filter(|r| r["deleted"] != true)
                 .filter(|r| format!(
                     "{} {}",
                     r["title"].as_str().unwrap_or(""),

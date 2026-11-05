@@ -125,6 +125,11 @@ pub async fn snapshot(core: &Core, token: &str) -> Result<serde_json::Value> {
         item["alerts_read"] = serde_json::json!(allowed(core, &actor, &id, "alerts.read").await?);
         item["documents_read"] =
             serde_json::json!(allowed(core, &actor, &id, "documents.read").await?);
+        item["can_add_document"] = serde_json::json!(
+            item["documents_read"].as_bool() == Some(true)
+                && r.get::<Option<String>, _>("archived_at").is_none()
+                && allowed(core, &actor, &id, "documents.write").await?
+        );
         item["contracts_read"] =
             serde_json::json!(allowed(core, &actor, &id, "contracts.read").await?);
         item["inventory_read"] =

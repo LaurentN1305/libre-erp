@@ -7,6 +7,8 @@ use sqlx::Row;
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Feature {
     pub kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub road_class: Option<String>,
     pub name: String,
     pub points: Vec<[f64; 2]>,
 }
@@ -306,6 +308,7 @@ pub fn parse_plan(value: Value, extent: [f64; 4]) -> Result<Plan> {
         count += points.len();
         features.push(Feature {
             kind: kind.into(),
+            road_class: e["tags"]["highway"].as_str().map(str::to_owned),
             name: e["tags"]["name"]
                 .as_str()
                 .unwrap_or("")

@@ -98,7 +98,7 @@ async fn raw(conn: &mut SqliteConnection, id: &str) -> Result<Value> {
     .fetch_all(&mut *conn)
     .await?;
     Ok(
-        json!({"id":id,"building_id":r.get::<String,_>("building_id"),"building":r.get::<String,_>("building"),"category":r.get::<String,_>("category_code"),"title":r.get::<String,_>("title"),"notes":r.get::<String,_>("notes"),"expires_on":r.get::<Option<String>,_>("expires_on"),"retention_until":r.get::<Option<String>,_>("retention_until"),"restricted":r.get::<i64,_>("restricted")==1,"revision":r.get::<i64,_>("revision"),"version":r.get::<i64,_>("current_version"),"file_id":r.get::<String,_>("file_id"),"name":r.get::<String,_>("original_name"),"mime":r.get::<String,_>("mime_type"),"size":r.get::<i64,_>("byte_size"),"date":r.get::<String,_>("created_at"),"actor":r.get::<String,_>("display_name"),"archived":r.get::<Option<String>,_>("archived_at").is_some(),"links":links,"legacy":false}),
+        json!({"id":id,"building_id":r.get::<String,_>("building_id"),"building":r.get::<String,_>("building"),"category":r.get::<String,_>("category_code"),"document_on":r.get::<Option<String>,_>("document_on"),"deleted":r.get::<Option<String>,_>("deleted_at").is_some(),"title":r.get::<String,_>("title"),"notes":r.get::<String,_>("notes"),"expires_on":r.get::<Option<String>,_>("expires_on"),"retention_until":r.get::<Option<String>,_>("retention_until"),"restricted":r.get::<i64,_>("restricted")==1,"revision":r.get::<i64,_>("revision"),"version":r.get::<i64,_>("current_version"),"file_id":r.get::<String,_>("file_id"),"name":r.get::<String,_>("original_name"),"mime":r.get::<String,_>("mime_type"),"size":r.get::<i64,_>("byte_size"),"date":r.get::<String,_>("created_at"),"actor":r.get::<String,_>("display_name"),"archived":r.get::<Option<String>,_>("archived_at").is_some(),"links":links,"legacy":false}),
     )
 }
 async fn load(c: &Core, id: &str) -> Result<Value> {
@@ -222,7 +222,7 @@ pub async fn save(c: &Core, t: &str, v: Value, path: Option<&std::path::Path>) -
     {
         bail!("Titre ou notes invalides")
     };
-    for field in ["expires_on", "retention_until"] {
+    for field in ["document_on", "expires_on", "retention_until"] {
         if let Some(d) = v[field].as_str().filter(|s| !s.is_empty()) {
             let date = chrono::NaiveDate::parse_from_str(d, "%Y-%m-%d")?;
             if date.to_string() != d {
@@ -259,6 +259,7 @@ pub async fn save(c: &Core, t: &str, v: Value, path: Option<&std::path::Path>) -
         if current["building_id"] != b
             || current["revision"] != v["base_revision"]
             || current["archived"] == true
+            || current["deleted"] == true
         {
             bail!("La fiche a changé, est archivée ou le bâtiment est différent. Actualisez.")
         };
@@ -335,7 +336,7 @@ pub async fn save(c: &Core, t: &str, v: Value, path: Option<&std::path::Path>) -
             .execute(&mut *tx)
             .await?;
     }
-    sqlx::query("UPDATE documents SET title=?,category_code=?,current_version=?,expires_on=?,retention_until=?,notes=?,restricted=? WHERE id=?").bind(s(&v,"title").trim()).bind(s(&v,"category")).bind(version).bind(v["expires_on"].as_str().filter(|s|!s.is_empty())).bind(v["retention_until"].as_str().filter(|s|!s.is_empty())).bind(s(&v,"notes")).bind(i64::from(sticky)).bind(&id).execute(&mut *tx).await?;
+    sqlx::query("UPDATE documents SET title=?,category_code=?,current_version=?,expires_on=?,retention_until=?,notes=?,restricted=?,document_on=? WHERE id=?").bind(s(&v,"title").trim()).bind(s(&v,"category")).bind(version).bind(v["expires_on"].as_str().filter(|s|!s.is_empty())).bind(v["retention_until"].as_str().filter(|s|!s.is_empty())).bind(s(&v,"notes")).bind(i64::from(sticky)).bind(v["document_on"].as_str().filter(|s|!s.is_empty())).bind(&id).execute(&mut *tx).await?;
     sqlx::query("DELETE FROM document_links WHERE document_id=?")
         .bind(&id)
         .execute(&mut *tx)
@@ -355,13 +356,55 @@ pub async fn save(c: &Core, t: &str, v: Value, path: Option<&std::path::Path>) -
 }
 async fn deadline(tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>, id: &str) -> Result<()> {
     sqlx::query("UPDATE deadlines SET completed_at=? WHERE entity_id=? AND kind LIKE 'document:%' AND completed_at IS NULL").bind(db::now()).bind(id).execute(&mut **tx).await?;
-    let r=sqlx::query("SELECT d.title,d.expires_on,e.building_id,e.archived_at FROM documents d JOIN entities e ON e.id=d.id WHERE d.id=?").bind(id).fetch_one(&mut **tx).await?;
+    let r=sqlx::query("SELECT d.title,d.expires_on,e.building_id,coalesce(e.archived_at,d.deleted_at) FROM documents d JOIN entities e ON e.id=d.id WHERE d.id=?").bind(id).fetch_one(&mut **tx).await?;
     if r.get::<Option<String>, _>(3).is_none() {
         if let Some(day) = r.get::<Option<String>, _>(1) {
             sqlx::query("INSERT INTO deadlines(id,entity_id,building_id,kind,due_on) VALUES(?,?,?,?,?) ON CONFLICT(entity_id,kind,due_on) DO UPDATE SET completed_at=NULL").bind(db::id()).bind(id).bind(r.get::<String,_>(2)).bind(format!("document:Expiration · {}",r.get::<String,_>(0))).bind(day).execute(&mut **tx).await?;
         }
     }
     Ok(())
+}
+pub async fn trash(c: &Core, t: &str, id: &str, base_revision: i64, deleted: bool) -> Result<()> {
+    let u = access(c, t, id, true).await?;
+    let mut tx = c.pool.begin().await?;
+    let state = raw(&mut *tx, id).await?;
+    if state["revision"] != base_revision || state["deleted"] == deleted {
+        bail!("La fiche a changé. Actualisez.")
+    }
+    crate::shared_workspace::require_write(c)?;
+    sqlx::query("UPDATE documents SET deleted_at=? WHERE id=?")
+        .bind(deleted.then(db::now))
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
+    deadline(&mut tx, id).await?;
+    let reason = if deleted { "Mis à la corbeille" } else { "Restauré depuis la corbeille" };
+    revision(&mut tx, &c.key, id, &u, reason).await?;
+    tx.commit().await?;
+    audit::checkpoint(&c.pool, &c.root).await
+}
+pub async fn category_save(c: &Core, t: &str, code: Option<&str>, label: &str) -> Result<()> {
+    let u = auth::require(c, t, Some("users.manage")).await?;
+    let label = label.trim();
+    if label.is_empty() || label.chars().count() > 100 {
+        bail!("Le nom de la catégorie doit contenir de 1 à 100 caractères.")
+    }
+    let mut tx = c.pool.begin().await?;
+    let labels: Vec<(String, String)> =
+        sqlx::query_as("SELECT code,label FROM document_categories").fetch_all(&mut *tx).await?;
+    if labels.iter().any(|(key, existing)| Some(key.as_str()) != code && existing.to_lowercase() == label.to_lowercase()) {
+        bail!("Une catégorie porte déjà ce nom.")
+    }
+    if code.is_some_and(|code| !labels.iter().any(|(key, _)| key == code)) {
+        bail!("Catégorie inconnue.")
+    }
+    crate::shared_workspace::require_write(c)?;
+    let code = code.map(str::to_owned).unwrap_or_else(db::id);
+    sqlx::query("INSERT INTO document_categories(code,label) VALUES(?,?) ON CONFLICT(code) DO UPDATE SET label=excluded.label")
+        .bind(&code).bind(label).execute(&mut *tx).await?;
+    audit::append(&mut tx, &c.key, Some(&u), "document.category_saved", json!({"code":code,"label":label})).await?;
+    tx.commit().await?;
+    audit::checkpoint(&c.pool, &c.root).await
 }
 pub async fn archive(
     c: &Core,
@@ -375,7 +418,7 @@ pub async fn archive(
     let u = access(c, t, id, true).await?;
     why(&json!({"reason":reason}))?;
     let v = load(c, id).await?;
-    if v["revision"] != revision_number {
+    if v["revision"] != revision_number || v["deleted"] == true {
         bail!("La fiche a changé. Actualisez")
     };
     let mut tx = c.pool.begin().await?;

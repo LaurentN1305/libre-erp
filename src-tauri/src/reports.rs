@@ -222,13 +222,15 @@ pub async fn table(
         }
         "documents" => (
             "Documents",
-            array(&crate::documents::snapshot_export(c, t).await?, "records"),
+            array(&crate::documents::snapshot_export(c, t).await?, "records")
+                .into_iter().filter(|r| r["deleted"] != true).collect(),
             vec![
                 ("building", "Bâtiment", "text"),
                 ("title", "Titre", "text"),
                 ("category", "Catégorie", "text"),
                 ("name", "Fichier", "text"),
                 ("version", "Version", "number"),
+                ("document_on", "Date du document", "date"),
                 ("expires_on", "Expiration", "date"),
                 ("date", "Date de version", "text"),
                 ("size", "Taille (octets)", "number"),

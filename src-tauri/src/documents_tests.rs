@@ -37,12 +37,18 @@ async fn documents_versions_scope_financial_archive_and_exchange() {
     let other = building(&c, t, "École").await;
     let pdf = root.join("plan.pdf");
     std::fs::write(&pdf, b"%PDF-1.4\nVersion un").unwrap();
-    let mut input = json!({"id":null,"building_id":b,"title":"Plan évacuation","category":"plan","notes":"RDC","expires_on":"2026-01-01","retention_until":null,"restricted":false,"links":[b],"base_revision":0,"reason":"Création document"});
+    documents::category_save(&c, t, None, "Plan municipal").await.unwrap();
+    let category: String = sqlx::query_scalar("SELECT code FROM document_categories WHERE label='Plan municipal'")
+        .fetch_one(&c.pool).await.unwrap();
+    documents::category_save(&c, t, Some(&category), "Plan de sécurité").await.unwrap();
+    let mut input = json!({"id":null,"building_id":b,"title":"Plan évacuation","category":category,"document_on":"2025-12-10","notes":"RDC","expires_on":"2026-01-01","retention_until":null,"restricted":false,"links":[b],"base_revision":0,"reason":"Création document"});
     let id = documents::save(&c, t, input.clone(), Some(&pdf))
         .await
         .unwrap();
     let d = documents::snapshot(&c, t).await.unwrap();
     assert_eq!(d["records"].as_array().unwrap().len(), 1);
+    assert_eq!(d["records"][0]["document_on"], "2025-12-10");
+    assert!(d["categories"].as_array().unwrap().iter().any(|c| c["code"] == "commission_report"));
     let f1 = d["records"][0]["file_id"].as_str().unwrap().to_owned();
     assert_eq!(
         documents::file(&c, t, &id, &f1, None).await.unwrap().1,
@@ -143,6 +149,11 @@ async fn documents_versions_scope_financial_archive_and_exchange() {
     documents::archive(&c, t, &id, 4, false, "Réactivation test")
         .await
         .unwrap();
+    assert!(documents::trash(&c, t, &id, 4, true).await.is_err());
+    documents::trash(&c, t, &id, 5, true).await.unwrap();
+    let library = documents::snapshot(&c, t).await.unwrap();
+    assert!(library["records"].as_array().unwrap().iter().any(|r| r["id"] == id && r["deleted"] == true));
+    documents::trash(&c, t, &id, 6, false).await.unwrap();
     let org = preferences::org(&c, &admin.user.id).await.unwrap();
     let legacy = vault::put(
         &c,
@@ -238,6 +249,10 @@ async fn documents_versions_scope_financial_archive_and_exchange() {
             .len(),
         2
     );
+    assert_eq!(received["document_on"], "2025-12-10");
+    assert_eq!(received["deleted"], false);
+    assert!(rows["categories"].as_array().unwrap().iter().any(|c|
+        c["code"] == received["category"] && c["label"] == "Plan de sécurité"));
     audit::verify(&c.pool, &c.key, &c.root).await.unwrap();
     target.pool.close().await;
     std::fs::remove_dir_all(tr).unwrap();

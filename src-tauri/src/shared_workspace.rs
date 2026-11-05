@@ -732,13 +732,17 @@ pub async fn shared_edit(state: State<'_, Shared>, token: String) -> Reply<Statu
 }.await)
 }
 #[tauri::command]
-pub async fn shared_publish(state: State<'_, Shared>, token: String) -> Reply<Status> {
+pub async fn shared_publish(state: State<'_, Shared>, token: String, release_only: Option<bool>) -> Reply<Status> {
     crate::response(
         async {
             let mut c = state.lock().await;
             auth::require(&c, &token, None).await?;
+            let release_only = release_only.unwrap_or(false);
+            if release_only && c.sharing.pending() {
+                bail!("Des modifications attendent un envoi. Utilisez Envoyer et libérer.");
+            }
             publish(&mut c).await?;
-            status(&c, "Travail envoyé et réservation libérée.")
+            status(&c, if release_only { "Réservation libérée." } else { "Travail envoyé et réservation libérée." })
         }
         .await,
     )
