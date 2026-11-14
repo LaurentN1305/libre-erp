@@ -103,7 +103,63 @@ async fn raw(conn: &mut SqliteConnection, id: &str) -> Result<Value> {
 }
 async fn load(c: &Core, id: &str) -> Result<Value> {
     let mut conn = c.pool.acquire().await?;
-    raw(&mut conn, id).await
+    let mut value = raw(&mut conn, id).await?;
+    // Remarques ou anomalies relevées sur le rapport, par fiche liée.
+    let mut notes = serde_json::Map::new();
+    for r in sqlx::query("SELECT entity_id,note FROM document_link_notes WHERE document_id=?")
+        .bind(id)
+        .fetch_all(&mut *conn)
+        .await?
+    {
+        notes.insert(r.get::<String, _>(0), json!(r.get::<String, _>(1)));
+    }
+    value["link_notes"] = Value::Object(notes);
+    Ok(value)
+}
+/// Enregistre les remarques d'un rapport pour ses fiches liées ; une remarque vide est retirée.
+pub async fn link_notes_set(
+    c: &Core,
+    t: &str,
+    id: &str,
+    notes: std::collections::HashMap<String, String>,
+) -> Result<()> {
+    let u = access(c, t, id, true).await?;
+    crate::shared_workspace::require_write(c)?;
+    let linked: Vec<String> =
+        sqlx::query_scalar("SELECT entity_id FROM document_links WHERE document_id=?")
+            .bind(id)
+            .fetch_all(&c.pool)
+            .await?;
+    let mut tx = c.pool.begin().await?;
+    sqlx::query("DELETE FROM document_link_notes WHERE document_id=?")
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
+    for (entity, note) in &notes {
+        let note = note.trim();
+        if note.is_empty() || !linked.contains(entity) {
+            continue;
+        }
+        if note.chars().count() > 2000 {
+            bail!("Une remarque dépasse 2 000 caractères.")
+        }
+        sqlx::query("INSERT INTO document_link_notes(document_id,entity_id,note) VALUES(?,?,?)")
+            .bind(id)
+            .bind(entity)
+            .bind(note)
+            .execute(&mut *tx)
+            .await?;
+    }
+    audit::append(
+        &mut tx,
+        &c.key,
+        Some(&u),
+        "document.notes",
+        json!({"document_id":id}),
+    )
+    .await?;
+    tx.commit().await?;
+    audit::checkpoint(&c.pool, &c.root).await
 }
 async fn legacy_access(
     c: &Core,
@@ -164,7 +220,7 @@ async fn snapshot_inner(c: &Core,t: &str,full:bool)->Result<Value>{
     let mut records = vec![];
     for r in sqlx::query("SELECT b.id,b.name,e.archived_at FROM buildings b JOIN entities e ON e.id=b.id WHERE b.organisation_id=? ORDER BY b.name").bind(&org).fetch_all(&c.pool).await?{let b:String=r.get(0);if !allowed(c,&u,&b,false,false).await?{continue}buildings.push(json!({"id":b,"name":r.get::<String,_>(1),"archived":r.get::<Option<String>,_>(2).is_some(),"can_write":allowed(c,&u,&b,true,false).await?&&r.get::<Option<String>,_>(2).is_none(),"financial":allowed(c,&u,&b,false,true).await?}));for row in sqlx::query("SELECT e.id,e.kind,coalesce(q.designation,w.title,r.title,co.subject,p.name,b.name,'Fiche liée') AS title FROM entities e LEFT JOIN equipment q ON q.id=e.id LEFT JOIN works w ON w.id=e.id LEFT JOIN register_entries r ON r.id=e.id LEFT JOIN contracts co ON co.id=e.id LEFT JOIN providers p ON p.id=e.id LEFT JOIN buildings b ON b.id=e.id WHERE (e.building_id=? OR e.id=? OR e.id IN(SELECT contract_id FROM contract_buildings WHERE building_id=?) OR e.kind='provider') AND e.organisation_id=? AND e.archived_at IS NULL AND e.kind IN('building','equipment','work','register_entry','contract','provider')").bind(&b).bind(&b).bind(&b).bind(&org).fetch_all(&c.pool).await?{let id:String=row.get(0);if target(c,t,&u,&b,&id).await?{targets.push(json!({"id":id,"building_id":b,"kind":row.get::<String,_>(1),"name":row.get::<String,_>(2)}))}}}
     for id in sqlx::query_scalar::<_,String>(if full {"SELECT d.id FROM documents d JOIN entities e ON e.id=d.id WHERE e.organisation_id=? ORDER BY d.title"} else {"SELECT d.id FROM documents d JOIN entities e ON e.id=d.id WHERE e.organisation_id=? ORDER BY d.title LIMIT 5000"}).bind(&org).fetch_all(&c.pool).await?{if access(c,t,&id,false).await.is_ok(){let mut v=load(c,&id).await?;v["can_write"]=json!(access(c,t,&id,true).await.is_ok());records.push(v)}}
-    for r in sqlx::query(if full {"SELECT DISTINCT e.id,e.kind,coalesce(e.building_id,CASE WHEN e.kind='building' THEN e.id END) AS building_id,b.name AS building,f.id AS fid,f.original_name,f.mime_type,f.byte_size,f.created_at FROM entity_files ef JOIN entities e ON e.id=ef.entity_id JOIN files f ON f.id=ef.file_id LEFT JOIN buildings b ON b.id=coalesce(e.building_id,CASE WHEN e.kind='building' THEN e.id END) WHERE e.organisation_id=? AND e.kind<>'document' ORDER BY f.created_at DESC"} else {"SELECT DISTINCT e.id,e.kind,coalesce(e.building_id,CASE WHEN e.kind='building' THEN e.id END) AS building_id,b.name AS building,f.id AS fid,f.original_name,f.mime_type,f.byte_size,f.created_at FROM entity_files ef JOIN entities e ON e.id=ef.entity_id JOIN files f ON f.id=ef.file_id LEFT JOIN buildings b ON b.id=coalesce(e.building_id,CASE WHEN e.kind='building' THEN e.id END) WHERE e.organisation_id=? AND e.kind<>'document' ORDER BY f.created_at DESC LIMIT 5000"}).bind(&org).fetch_all(&c.pool).await?{let id:String=r.get("id");let file:String=r.get("fid");if legacy_access(c,t,&id,&file).await.is_ok(){let mut associated=vec![];for bid in sqlx::query_scalar::<_,String>("SELECT building_id FROM contract_buildings WHERE contract_id=? OR contract_id IN(SELECT id FROM contracts WHERE provider_id=?)").bind(&id).bind(&id).fetch_all(&c.pool).await?{if allowed(c,&u,&bid,false,false).await?{associated.push(bid)}}records.push(json!({"id":format!("legacy:{id}:{file}"),"source_id":id,"source_kind":r.get::<String,_>("kind"),"building_ids":associated,"building_id":r.get::<Option<String>,_>("building_id"),"building":r.get::<Option<String>,_>("building"),"title":r.get::<String,_>("original_name"),"name":r.get::<String,_>("original_name"),"mime":r.get::<String,_>("mime_type"),"size":r.get::<i64,_>("byte_size"),"date":r.get::<String,_>("created_at"),"file_id":file,"category":"other","expires_on":null,"archived":false,"legacy":true,"can_write":false}))}}
+    for r in sqlx::query(if full {"SELECT DISTINCT e.id,e.kind,coalesce(e.building_id,CASE WHEN e.kind='building' THEN e.id END) AS building_id,b.name AS building,f.id AS fid,f.original_name,f.mime_type,f.byte_size,f.created_at FROM entity_files ef JOIN entities e ON e.id=ef.entity_id JOIN files f ON f.id=ef.file_id LEFT JOIN buildings b ON b.id=coalesce(e.building_id,CASE WHEN e.kind='building' THEN e.id END) WHERE e.organisation_id=? AND e.kind<>'document' AND e.archived_at IS NULL AND NOT EXISTS(SELECT 1 FROM equipment_photos p WHERE p.equipment_id=e.id AND p.file_id=f.id AND p.active=0) AND NOT EXISTS(SELECT 1 FROM work_documents w WHERE w.work_id=e.id AND w.file_id=f.id AND w.active=0) ORDER BY f.created_at DESC"} else {"SELECT DISTINCT e.id,e.kind,coalesce(e.building_id,CASE WHEN e.kind='building' THEN e.id END) AS building_id,b.name AS building,f.id AS fid,f.original_name,f.mime_type,f.byte_size,f.created_at FROM entity_files ef JOIN entities e ON e.id=ef.entity_id JOIN files f ON f.id=ef.file_id LEFT JOIN buildings b ON b.id=coalesce(e.building_id,CASE WHEN e.kind='building' THEN e.id END) WHERE e.organisation_id=? AND e.kind<>'document' AND e.archived_at IS NULL AND NOT EXISTS(SELECT 1 FROM equipment_photos p WHERE p.equipment_id=e.id AND p.file_id=f.id AND p.active=0) AND NOT EXISTS(SELECT 1 FROM work_documents w WHERE w.work_id=e.id AND w.file_id=f.id AND w.active=0) ORDER BY f.created_at DESC LIMIT 5000"}).bind(&org).fetch_all(&c.pool).await?{let id:String=r.get("id");let file:String=r.get("fid");if legacy_access(c,t,&id,&file).await.is_ok(){let mut associated=vec![];for bid in sqlx::query_scalar::<_,String>("SELECT building_id FROM contract_buildings WHERE contract_id=? OR contract_id IN(SELECT id FROM contracts WHERE provider_id=?)").bind(&id).bind(&id).fetch_all(&c.pool).await?{if allowed(c,&u,&bid,false,false).await?{associated.push(bid)}}records.push(json!({"id":format!("legacy:{id}:{file}"),"source_id":id,"source_kind":r.get::<String,_>("kind"),"building_ids":associated,"building_id":r.get::<Option<String>,_>("building_id"),"building":r.get::<Option<String>,_>("building"),"title":r.get::<String,_>("original_name"),"name":r.get::<String,_>("original_name"),"mime":r.get::<String,_>("mime_type"),"size":r.get::<i64,_>("byte_size"),"date":r.get::<String,_>("created_at"),"file_id":file,"category":"other","expires_on":null,"archived":false,"legacy":true,"can_write":false}))}}
     let categories = sqlx::query("SELECT code,label FROM document_categories ORDER BY label")
         .fetch_all(&c.pool)
         .await?

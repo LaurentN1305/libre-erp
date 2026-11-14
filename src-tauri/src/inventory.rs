@@ -224,6 +224,18 @@ pub async fn detail(c: &Core, token: &str, id: &str) -> Result<Value> {
     let mut conn = c.pool.acquire().await?;
     let mut v = profile(&mut conn, id).await?;
     drop(conn);
+    // Rapports et documents liés à cet équipement, avec la remarque relevée s'il y en a une.
+    v["documents"] = if permit(c, &u, &b, "documents.read").await? {
+        json!(sqlx::query("SELECT d.id,d.title,d.category_code,d.document_on,n.note FROM document_links l JOIN documents d ON d.id=l.document_id JOIN entities e ON e.id=d.id LEFT JOIN document_link_notes n ON n.document_id=d.id AND n.entity_id=l.entity_id WHERE l.entity_id=? AND e.archived_at IS NULL AND d.deleted_at IS NULL ORDER BY coalesce(d.document_on,'') DESC,d.title")
+            .bind(id)
+            .fetch_all(&c.pool)
+            .await?
+            .iter()
+            .map(|r| json!({"id":r.get::<String,_>(0),"title":r.get::<String,_>(1),"category":r.get::<String,_>(2),"document_on":r.get::<Option<String>,_>(3),"note":r.get::<Option<String>,_>(4)}))
+            .collect::<Vec<_>>())
+    } else {
+        json!([])
+    };
     redact(
         &mut v,
         permit(c, &u, &b, "inventory.cost.read").await?,

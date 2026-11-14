@@ -89,3 +89,7 @@ dialog.building-editor{margin:auto;border:1px solid var(--bd-c5d6dc)}dialog.buil
 /* Choix de l'apparence */
 .theme-choice{display:flex;gap:8px;flex-wrap:wrap}
 .theme-choice button.selected{background:var(--bg-a51d32);border-color:var(--bd-a51d32);color:var(--fg-ffffff)}
+
+/* Remarques par équipement sur un rapport */
+.link-note-row{display:grid;grid-template-columns:minmax(180px,1fr) 2fr;gap:12px;align-items:center;margin:6px 0}
+.link-note-row .checkbox{margin:0}

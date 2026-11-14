@@ -1,8 +1,8 @@
 # Libre ERP
 
-Libre ERP est une application Windows hors ligne dédiée au suivi des bâtiments ERP (établissements recevant du public). Elle centralise la maintenance, les contrats d’entretien, les interventions, les équipements et le registre de sécurité, ainsi que les documents, les échéances et l’historique de chaque bâtiment.
+Libre ERP est une application Windows hors ligne dédiée au suivi des bâtiments ERP (établissements recevant du public), des équipements sportifs et des aires de jeux d’une collectivité. Elle centralise la maintenance, les contrats d’entretien, les interventions, les équipements et le registre de sécurité, ainsi que les documents, les contrôles, les échéances et l’historique de chaque site.
 
-**État : version 0.11.1, schéma SQLite 13.** Le logiciel fonctionne hors ligne pour ses données métier. La recherche cartographique et la vérification de mises à jour sont des actions réseau facultatives.
+**État : version 0.15.0, schéma SQLite 18.** Le logiciel fonctionne hors ligne pour ses données métier. La recherche cartographique et la vérification de mises à jour sont des actions réseau facultatives.
 
 ## Télécharger Libre ERP pour Windows
 
@@ -14,28 +14,32 @@ La première version avec mises à jour signées est **0.11.0**. Une installatio
 
 ## Mode d’emploi
 
-Un guide simple accompagne l’installation et l’utilisation : première connexion, bâtiments, interventions, registre, équipements, contrats, documents, sauvegardes et mises à jour.
+Un guide accompagne l’installation et l’utilisation : première connexion, bâtiments, interventions, registre, équipements, contrats, documents, sauvegardes et mises à jour.
 
 - **[Lire ou télécharger le mode d’emploi PDF](docs/LibreERP-Mode-emploi.pdf)**
 - [Lire le guide directement sur GitHub](docs/MODE-EMPLOI.md)
 
-Le guide correspond à la version 0.11.1 et utilise uniquement une illustration fictive.
+Le guide décrit la version 0.11.1 et utilise uniquement une illustration fictive. L’interface a changé depuis (navigation par onglets, sites, mode sombre) : le guide sera repris lorsque ces évolutions seront stabilisées.
 
 ## Fonctions disponibles
-- Tableau de bord et fiches multi-bâtiments, plusieurs types ERP par bâtiment.
+- Sites : bâtiments ERP (plusieurs types par bâtiment), équipements sportifs et aires de jeux, rattachés ou non à un bâtiment.
+- Navigation par onglets : les rubriques en haut de la fenêtre et, dans chaque site, résumé, registre, documents, équipements, contrats et alertes.
 - Registre de sécurité en neuf rubriques, historique et export PDF.
 - Interventions, priorités, suivi, budgets et pièces jointes.
-- Inventaire, entretien et relevés de consommation ; QR facultatifs.
+- Inventaire des équipements (buts, paniers, jeux, extincteurs…), état, périodicité de contrôle, entretien et relevés de consommation ; QR facultatifs.
+- Rapports de contrôle liés à plusieurs équipements, avec la remarque ou l’anomalie relevée pour chacun.
 - Contrats, prestataires et documents avec versions et échéances.
 - Alertes, prise en charge, escalade et notifications Windows.
 - Exports Excel/CSV/PDF et import CSV d’inventaire avec aperçu.
-- Comptes locaux, rôles et périmètres, TOTP facultatif, audit, sauvegarde et échange chiffré de bâtiments.
-- Version installée ou portable ; logo de la commune personnalisable.
+- Comptes locaux, rôles et périmètres, double authentification facultative, historique des opérations, sauvegarde et échange chiffré de sites.
+- Travail à plusieurs facultatif par un espace SFTP, avec un seul rédacteur à la fois.
+- Mises à jour signées proposées dans l’application, avec sauvegarde automatique préalable.
+- Apparence claire ou sombre ; version installée ou portable ; logo de la commune personnalisable.
 
 Les données réelles, les comptes, les sauvegardes, les exports et les clés de signature ne font pas partie du dépôt. Les exemples des tests sont fictifs.
 
 ## Installation et documentation
-Le [guide de la version 0.10.0](docs/M8-LibreERP.md) décrit les fonctions et les essais. Les installateurs ne sont pas encore publiés dans les Releases de ce dépôt.
+Les installateurs Windows sont publiés dans les [Releases](https://github.com/LaurentN1305/libre-erp/releases) de ce dépôt, avec les nouveautés de chaque version.
 
 Les [corrections connues](docs/SUIVI-CORRECTIONS.md) concernent l’alignement des actions du tableau de bord, les PDF récapitulatifs, la présentation du registre et la fiabilité d’OpenStreetMap. Le recours IGN est disponible.
 

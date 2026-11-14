@@ -1,0 +1,6 @@
+Sites : en plus des bâtiments, vous pouvez créer des équipements sportifs et des aires de jeux, rattachés ou non à un bâtiment. Chaque but, panier ou jeu se suit dans l'onglet Équipements du site, avec son état et ses échéances de contrôle.
+Rapports de contrôle : en ajoutant un rapport dans les documents d'un site, cochez les équipements concernés et notez la remarque ou l'anomalie relevée pour chacun. Elle apparaît dans la fiche de l'équipement.
+Suppression d'un équipement avec message d'avertissement. L'équipement est archivé et peut être rétabli ; ses pièces jointes ne sont plus listées dans la bibliothèque.
+Mode sombre : bouton en haut de la fenêtre et choix dans Paramètres, Mon compte.
+Phrase de récupération propre à chaque poste : la mise à jour en un bouton fonctionne aussi en partage SFTP.
+Cette version modifie la structure des données : en partage, mettez tous les postes à jour avant de reprendre les échanges.
