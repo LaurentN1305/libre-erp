@@ -15,7 +15,7 @@ export function BuildingTabs({ building, active, showTitle = false, onSelect, on
     ['alerts', 'Alertes', features.alerts && !!building.alerts_read],
   ];
   return <div className="building-tabs-block">
-    <div className="building-tabs-title"><button className="link-back" onClick={onClose}>← Tous les bâtiments</button>{showTitle && <h2>{building.name}</h2>}</div>
+    <div className="building-tabs-title"><button className="link-back" onClick={onClose}>← Tous les sites</button>{showTitle && <h2>{building.name}</h2>}</div>
     <nav className="tabs building-tabs" aria-label={`Rubriques de ${building.name}`}>{tabs.filter(t => t[2]).map(([id, label]) => <button key={id} className={id === active ? 'selected' : ''} aria-current={id === active ? 'page' : undefined} onClick={() => { if (id !== active) onSelect(id); }}>{label}</button>)}</nav>
   </div>;
 }

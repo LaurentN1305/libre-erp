@@ -1,2 +1,4 @@
 *.pdf binary
 *.png binary
+# Les migrations sont verifiees octet par octet a l'ouverture de la base : aucune conversion de fins de ligne.
+src-tauri/migrations/*.sql -text

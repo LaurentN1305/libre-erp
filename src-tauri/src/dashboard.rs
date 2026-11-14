@@ -121,6 +121,8 @@ pub async fn snapshot(core: &Core, token: &str) -> Result<serde_json::Value> {
             r.get::<Option<String>, _>("archived_at").is_none()
                 && allowed(core, &actor, &id, "work.write").await?
         );
+        item["nature"] = serde_json::json!(r.get::<String, _>("nature"));
+        item["parent"] = serde_json::json!(r.get::<Option<String>, _>("parent_site_id"));
         item["types"] = serde_json::json!(types);
         item["alerts_read"] = serde_json::json!(allowed(core, &actor, &id, "alerts.read").await?);
         item["documents_read"] =
@@ -277,6 +279,53 @@ pub async fn save(core: &Core, token: &str, input: BuildingInput) -> Result<Stri
     tx.commit().await?;
     audit::checkpoint(&core.pool, &core.root).await?;
     Ok(id)
+}
+/// Nature du site (bâtiment, équipement sportif, aire de jeux) et rattachement
+/// facultatif à un bâtiment. Les autres champs passent par `save`.
+pub async fn set_nature(
+    core: &Core,
+    token: &str,
+    id: &str,
+    nature: &str,
+    parent: Option<&str>,
+) -> Result<()> {
+    crate::shared_workspace::require_write(core)?;
+    let actor = check(core, token, id, "buildings.write").await?;
+    if !["building", "sports", "playground"].contains(&nature) {
+        bail!("Nature de site inconnue.");
+    }
+    let parent = if nature == "building" {
+        None
+    } else {
+        parent.filter(|p| !p.is_empty())
+    };
+    if let Some(p) = parent {
+        let n: i64 = sqlx::query_scalar("SELECT count(*) FROM buildings b JOIN buildings me ON me.organisation_id=b.organisation_id WHERE b.id=? AND me.id=? AND b.id<>me.id AND b.nature='building'")
+            .bind(p)
+            .bind(id)
+            .fetch_one(&core.pool)
+            .await?;
+        if n != 1 {
+            bail!("Le bâtiment de rattachement est introuvable.");
+        }
+    }
+    let mut tx = core.pool.begin().await?;
+    sqlx::query("UPDATE buildings SET nature=?,parent_site_id=? WHERE id=?")
+        .bind(nature)
+        .bind(parent)
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
+    audit::append(
+        &mut tx,
+        &core.key,
+        Some(&actor),
+        "building.save",
+        serde_json::json!({"building_id":id,"nature":nature}),
+    )
+    .await?;
+    tx.commit().await?;
+    audit::checkpoint(&core.pool, &core.root).await
 }
 pub async fn archive(core: &Core, token: &str, id: &str, archived: bool) -> Result<()> {
     crate::shared_workspace::require_write(core)?;
