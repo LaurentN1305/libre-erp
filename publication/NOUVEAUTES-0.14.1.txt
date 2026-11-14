@@ -1,0 +1,3 @@
+Une mise à jour déjà installée n'est plus proposée une seconde fois.
+La mise à jour reste possible lorsque les données partagées ont été envoyées par une version plus récente de Libre ERP : c'était un blocage sans issue.
+Première version installée avec le nouveau parcours : phrase de récupération demandée une seule fois, puis mise à jour en un bouton.

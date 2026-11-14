@@ -33,7 +33,8 @@ if ($Publication) {
         if (-not (Get-Command signtool -ErrorAction SilentlyContinue)) { throw 'signtool absent pour le certificat facultatif configure.' }
         Invoke-Checked 'signtool' @('sign','/sha1',$taskRelease.bundle.windows.certificateThumbprint,'/fd','SHA256','/tr',$taskRelease.bundle.windows.timestampUrl,'/td','SHA256','src-tauri/resources/securite-erp-recovery.exe')
     } else { Write-Host 'Sans certificat Windows : les signatures cryptographiques updater restent obligatoires.' -ForegroundColor Cyan }
-    $taskArgs += @('--config','src-tauri/tauri.release.json')
+    # --ci : aucune question posee pendant la signature (la cle de mise a jour n a pas de mot de passe).
+    $taskArgs += @('--config','src-tauri/tauri.release.json','--ci')
 } else {
     Write-Host 'Version de test : installateurs non signes, mises a jour non publiees.' -ForegroundColor Yellow
 }

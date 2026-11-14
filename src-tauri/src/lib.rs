@@ -406,7 +406,12 @@ async fn update_install(
     response(
         async {
             let mut c = state.lock().await;
-            shared_workspace::require_released(&c)?;
+            if let Err(blocked) = shared_workspace::require_released(&c) {
+                // Partage écrit par une version plus récente : seule la mise à jour débloque.
+                if !shared_workspace::blocked_by_newer_version(&c).await {
+                    return Err(blocked);
+                }
+            }
             not_downloading(&c)?;
             let actor = auth::require(&c, &token, Some("updates.manage")).await?;
             // Phrase saisie : elle est mémorisée pour les prochaines mises à jour.

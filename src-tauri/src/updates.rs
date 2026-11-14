@@ -69,7 +69,28 @@ mod signature_tests {
         .is_err());
     }
 }
+/// Oublie une mise à jour téléchargée lorsque l'application est déjà à cette version
+/// ou plus récente (installation manuelle, par exemple).
+async fn forget_stale_candidate(core: &Core) -> Result<()> {
+    let candidate: Option<String> =
+        sqlx::query_scalar("SELECT candidate_version FROM update_state WHERE singleton=1")
+            .fetch_one(&core.pool)
+            .await?;
+    let Some(candidate) = candidate else {
+        return Ok(());
+    };
+    let current = semver::Version::parse(env!("CARGO_PKG_VERSION"))?;
+    if semver::Version::parse(&candidate).is_ok_and(|v| v <= current) {
+        sqlx::query("UPDATE update_state SET phase='idle',candidate_version=NULL,artifact_verified_at=NULL,last_error=NULL WHERE singleton=1")
+            .execute(&core.pool)
+            .await?;
+        let _ = std::fs::remove_file(core.root.join("updates/package.bin"));
+        let _ = std::fs::remove_file(core.root.join("updates/envelope.json"));
+    }
+    Ok(())
+}
 pub async fn status(core: &Core) -> Result<Status> {
+    let _ = forget_stale_candidate(core).await;
     let r=sqlx::query("SELECT channel,phase,candidate_version,last_checked_at,last_error,manifest_verified_at,artifact_verified_at FROM update_state WHERE singleton=1").fetch_one(&core.pool).await?;
     let error: Option<String> = r.get(4);
     let saved: Option<String> = sqlx::query_scalar("SELECT signed_manifest_json FROM update_state WHERE singleton=1").fetch_one(&core.pool).await?;

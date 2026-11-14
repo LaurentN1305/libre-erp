@@ -360,6 +360,21 @@ async fn network<T: Send + 'static>(
     })
     .await?
 }
+/// Vrai lorsque les données partagées ont été écrites par une version plus récente de
+/// Libre ERP : ce poste ne peut alors ni envoyer ni libérer son travail, et seule une
+/// mise à jour débloque la situation. Elle doit donc rester possible.
+pub async fn blocked_by_newer_version(c: &Core) -> bool {
+    if !c.sharing.enabled.load(Ordering::SeqCst) {
+        return false;
+    }
+    let Ok(cfg) = config(&c.root) else {
+        return false;
+    };
+    match network(cfg, |r, cfg| head(&r, &mac_key(&cfg)?)).await {
+        Ok(_) => false,
+        Err(e) => format!("{e:#}").contains("nécessite une mise à jour de Libre ERP"),
+    }
+}
 fn clear_pending(c: &Core) -> Result<()> {
     let p = c.root.join("sharing/pending");
     if p.exists() {
