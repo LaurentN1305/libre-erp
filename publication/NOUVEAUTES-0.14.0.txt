@@ -1,0 +1,4 @@
+Navigation par onglets : les rubriques sont en haut de la fenêtre et, dans chaque bâtiment, on passe du résumé au registre, aux documents, aux équipements, aux contrats et aux alertes sans quitter la fiche.
+Paramètres regroupés en quatre familles. L'import, l'export et l'envoi d'un bâtiment sont réunis dans un seul onglet.
+Ajout d'un document en trois champs et suppression directe depuis la liste.
+Mise à jour en un bouton : la phrase de récupération n'est demandée qu'une fois, puis la sauvegarde préalable est automatique.
