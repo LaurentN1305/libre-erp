@@ -76,3 +76,8 @@ dialog.building-editor{margin:auto;border:1px solid #c5d6dc}dialog.building-edit
 .link-back:hover:not(:disabled){background:transparent;color:#a51d32}
 .building-tabs{margin-bottom:22px}
 .building-tabs button{font-size:14px;padding:12px 6px 14px}
+
+/* Dans un bâtiment : pas de titre ni de filtre « Bâtiment » en doublon des onglets */
+.in-building .page-heading>div:first-child:has(>h1){display:none}
+.in-building .page-heading:has(>div:first-child>h1){justify-content:flex-end;margin-bottom:14px}
+.in-building .building-filter{display:none}
