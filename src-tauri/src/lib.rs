@@ -417,9 +417,7 @@ async fn update_install(
             // Phrase saisie : elle est mémorisée pour les prochaines mises à jour.
             // Sinon, la phrase déjà mémorisée protège la sauvegarde préalable.
             let phrase: Zeroizing<String> = if !p.is_empty() {
-                if !c.sharing.enabled.load(Ordering::SeqCst) {
-                    backup::remember_phrase(&c, &actor, &p).await?;
-                }
+                backup::remember_phrase(&c, &p)?;
                 Zeroizing::new(p.to_string())
             } else {
                 match backup::remembered_phrase(&c).await? {

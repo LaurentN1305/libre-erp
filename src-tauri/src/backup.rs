@@ -164,9 +164,25 @@ pub async fn set_destination(core: &Core, actor: &str, path: &Path) -> Result<()
         .bind(serde_json::to_string(&saved)?).bind(db::now()).bind(actor).execute(&core.pool).await?;
     Ok(())
 }
+/// Fichier local de la phrase de sauvegarde : protégé par Windows pour le compte de
+/// l'utilisateur de ce poste, et jamais placé dans la base (donc jamais partagé).
+fn phrase_path(core: &Core) -> std::path::PathBuf {
+    core.root.join("local").join("phrase-sauvegarde.dpapi")
+}
 /// Phrase de sauvegarde mémorisée sur ce poste, si elle existe et reste lisible.
-/// Elle sert aux sauvegardes automatiques : planification et sauvegarde avant mise à jour.
+/// Elle sert à la sauvegarde automatique faite avant une mise à jour.
 pub async fn remembered_phrase(core: &Core) -> Result<Option<zeroize::Zeroizing<String>>> {
+    let path = phrase_path(core);
+    if path.is_file() {
+        let Ok(secret) = crypto::unprotect(&std::fs::read(&path)?) else {
+            return Ok(None);
+        };
+        let Ok(pass) = std::str::from_utf8(&secret) else {
+            return Ok(None);
+        };
+        return Ok(Some(zeroize::Zeroizing::new(pass.to_owned())));
+    }
+    // À défaut, la phrase de la sauvegarde planifiée (mode local uniquement).
     if core.sharing.enabled.load(std::sync::atomic::Ordering::SeqCst) {
         return Ok(None);
     }
@@ -190,46 +206,15 @@ pub async fn remembered_phrase(core: &Core) -> Result<Option<zeroize::Zeroizing<
     };
     Ok(Some(zeroize::Zeroizing::new(pass.to_owned())))
 }
-/// Mémorise la phrase de sauvegarde pour ne plus la redemander. La planification
-/// existante (activée ou non, heure, dossier) est conservée telle quelle.
-pub async fn remember_phrase(core: &Core, actor: &str, password: &str) -> Result<()> {
+/// Mémorise la phrase de sauvegarde sur ce poste pour ne plus la redemander.
+/// Chaque poste a la sienne : rien n'est écrit dans les données partagées.
+pub fn remember_phrase(core: &Core, password: &str) -> Result<()> {
     crypto::validate_password(password)?;
-    let existing: Option<String> =
-        sqlx::query_scalar("SELECT value_json FROM settings WHERE key='backup.schedule'")
-            .fetch_optional(&core.pool)
-            .await?;
-    let old = existing
-        .map(|s| serde_json::from_str::<StoredSchedule>(&s))
-        .transpose()?;
-    let enabled = old.as_ref().map(|s| s.enabled).unwrap_or(false);
-    let time = old
-        .as_ref()
-        .map(|s| s.local_time.clone())
-        .unwrap_or_else(|| "18:00".to_string());
-    let saved = StoredSchedule {
-        enabled,
-        local_time: time.clone(),
-        destination: old.as_ref().and_then(|s| s.destination.clone()),
-        password_sealed: B64.encode(crypto::seal(
-            &core.key,
-            password.as_bytes(),
-            b"backup.schedule",
-        )?),
-        last_success: old.and_then(|s| s.last_success),
-    };
-    let mut tx = core.pool.begin().await?;
-    sqlx::query("INSERT INTO settings(key,value_json,modified_at,modified_by) VALUES('backup.schedule',?,?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,modified_at=excluded.modified_at,modified_by=excluded.modified_by")
-        .bind(serde_json::to_string(&saved)?).bind(db::now()).bind(actor).execute(&mut *tx).await?;
-    audit::append(
-        &mut tx,
-        &core.key,
-        Some(actor),
-        "backup.schedule",
-        serde_json::json!({"enabled":enabled,"time":time}),
-    )
-    .await?;
-    tx.commit().await?;
-    audit::checkpoint(&core.pool, &core.root).await
+    let path = phrase_path(core);
+    if let Some(folder) = path.parent() {
+        std::fs::create_dir_all(folder)?;
+    }
+    db::atomic_write(&path, &crypto::protect(password.as_bytes())?)
 }
 pub async fn scheduled(core: &mut Core) -> Result<Option<String>> {
     if core.sharing.enabled.load(std::sync::atomic::Ordering::SeqCst) { return Ok(None); }
