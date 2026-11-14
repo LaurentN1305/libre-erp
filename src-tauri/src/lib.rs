@@ -400,16 +400,29 @@ async fn update_install(
     app: tauri::AppHandle,
     state: State<'_, Shared>,
     token: String,
-    password: String,
+    password: Option<String>,
 ) -> Reply<()> {
-    let p = Zeroizing::new(password);
+    let p = Zeroizing::new(password.unwrap_or_default());
     response(
         async {
             let mut c = state.lock().await;
             shared_workspace::require_released(&c)?;
             not_downloading(&c)?;
             let actor = auth::require(&c, &token, Some("updates.manage")).await?;
-            updates::install(&mut c, &app, &actor, &p).await
+            // Phrase saisie : elle est mémorisée pour les prochaines mises à jour.
+            // Sinon, la phrase déjà mémorisée protège la sauvegarde préalable.
+            let phrase: Zeroizing<String> = if !p.is_empty() {
+                if !c.sharing.enabled.load(Ordering::SeqCst) {
+                    backup::remember_phrase(&c, &actor, &p).await?;
+                }
+                Zeroizing::new(p.to_string())
+            } else {
+                match backup::remembered_phrase(&c).await? {
+                    Some(saved) => saved,
+                    None => bail!("Choisissez une phrase de récupération : elle protège la sauvegarde faite avant la mise à jour et ne sera demandée qu’une fois."),
+                }
+            };
+            updates::install(&mut c, &app, &actor, &phrase).await
         }
         .await,
     )

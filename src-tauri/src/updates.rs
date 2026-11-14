@@ -21,6 +21,7 @@ pub struct Status {
     message: String,
     manifest_verified: bool,
     package_verified: bool,
+    backup_ready: bool,
 }
 fn installer_name() -> Result<&'static str> {
     match tauri::utils::platform::bundle_type() {
@@ -98,6 +99,7 @@ pub async fn status(core: &Core) -> Result<Status> {
         },
         manifest_verified: r.get::<Option<String>, _>(5).is_some(),
         package_verified: r.get::<Option<String>, _>(6).is_some(),
+        backup_ready: crate::backup::remembered_phrase(core).await.ok().flatten().is_some(),
     })
 }
 pub async fn channel(core: &Core, token: &str, channel: &str) -> Result<()> {
