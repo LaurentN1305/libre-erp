@@ -42,3 +42,37 @@ dialog.building-editor{margin:auto;border:1px solid #c5d6dc}dialog.building-edit
 .dashboard-heading{display:block;margin-bottom:18px}.dashboard-actions{margin:0 0 26px;gap:10px;align-items:stretch}.dashboard-actions button{margin:0;min-height:42px;flex:0 1 auto}@media(max-width:1100px){.dashboard-actions button{flex:1 1 185px}}
 
 .shared-actions{display:flex;gap:.65rem;flex-wrap:wrap;margin:.65rem 0}.shared-close{max-width:650px;width:calc(100% - 3rem);padding:1.5rem;border:1px solid #c5b3b6;border-radius:12px;color:#332027}.shared-close::backdrop{background:rgba(35,10,18,.55)}
+
+/* 0.14 : paramètres regroupés et menu principal complet */
+.settings-tabs{gap:28px;align-items:flex-end}
+.tab-group{display:flex;flex-direction:column;gap:2px}
+.tab-group-label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8a9aa1}
+.tab-group-items{display:flex;gap:14px}
+.side-separator{display:block;height:1px;background:rgba(255,255,255,.22);margin:6px 4px}
+
+/* 0.14 : fiche bâtiment rangée, options repliées */
+.building-sections{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid #d4dfe3;margin:18px 0 12px}
+.building-sections button{background:transparent;border:0;border-bottom:3px solid transparent;border-radius:0;padding:10px 12px;color:#264552}
+.building-sections button:hover:not(:disabled){background:transparent;border-bottom-color:#a51d32;color:#a51d32}
+.building-manage summary,.more-options summary{cursor:pointer;color:#576e78;font-weight:600;padding:8px 0}
+.building-manage .button-row,.more-options>*:not(summary){margin-top:10px}
+.section-title{margin:32px 0 12px;font-size:18px}
+
+/* 0.14 : navigation par onglets */
+.app.app-tabs{display:block}
+.app-tabs .workspace{margin-left:0;width:100%}
+.appbar{display:flex;align-items:center;gap:16px;background:#fff;border-top:4px solid #a51d32;padding:10px 28px}
+.appbar .brand{margin:0}
+.appbar .top-actions{margin-left:auto}
+.commune-logo-bar{max-height:40px;max-width:140px;object-fit:contain}
+.main-tabs{display:flex;gap:2px;background:#491b26;padding:8px 24px 0;overflow-x:auto;position:sticky;top:0;z-index:5}
+.main-tabs button{background:transparent;border:0;border-radius:8px 8px 0 0;padding:11px 18px;color:#f3dfe4;font-weight:600;white-space:nowrap}
+.main-tabs button:hover:not(:disabled){background:#632334}
+.main-tabs button[aria-current=page],.main-tabs button[aria-current=page]:hover{background:#faf6f7;color:#491b26}
+.main-tabs .tab-right{margin-left:auto}
+.building-tabs-title{display:flex;align-items:center;gap:16px;margin-bottom:4px}
+.building-tabs-title h2{margin:0;font-size:22px}
+.link-back{background:transparent;border:0;padding:6px 0;color:#576e78}
+.link-back:hover:not(:disabled){background:transparent;color:#a51d32}
+.building-tabs{margin-bottom:22px}
+.building-tabs button{font-size:14px;padding:12px 6px 14px}
